@@ -36,116 +36,10 @@ void printShaderInfoLog(GLint shader)
 	}
 }
 
-int LoadShader(const char *pfilePath_vs, const char *pfilePath_fs, bool bindTexCoord0, bool bindNormal, bool bindColor, GLuint &shaderProgram, GLuint &vertexShader, GLuint &fragmentShader)
-{
-	shaderProgram=0;
-	vertexShader=0;
-	fragmentShader=0;
- 
-	// load shaders & get length of each
-	int vlen;
-	int flen;
-	std::string vertexShaderString = loadFile(pfilePath_vs);
-	std::string fragmentShaderString = loadFile(pfilePath_fs);
-	vlen = vertexShaderString.length();
-	flen = fragmentShaderString.length();
- 
-	if(vertexShaderString.empty()){return -1;}
-	if(fragmentShaderString.empty()){return -1;}
- 
-	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);	
- 
-	const char *vertexShaderCStr = vertexShaderString.c_str();
-	const char *fragmentShaderCStr = fragmentShaderString.c_str();
-	glShaderSource(vertexShader, 1, (const GLchar **)&vertexShaderCStr, &vlen);
-	glShaderSource(fragmentShader, 1, (const GLchar **)&fragmentShaderCStr, &flen);
- 
-	GLint compiled;
- 
-	glCompileShader(vertexShader);
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &compiled);
-	if(compiled==false)
-	{
-		cout << "Vertex shader not compiled." << endl;
-		printShaderInfoLog(vertexShader);
- 
-		glDeleteShader(vertexShader);
-		vertexShader=0;
-		glDeleteShader(fragmentShader);
-		fragmentShader=0;
- 
-		return -1;
-	}
- 
-	glCompileShader(fragmentShader);
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &compiled);
-	if(compiled==false)
-	{
-		cout << "Fragment shader not compiled." << endl;
-		printShaderInfoLog(fragmentShader);
- 
-		glDeleteShader(vertexShader);
-		vertexShader=0;
-		glDeleteShader(fragmentShader);
-		fragmentShader=0;
- 
-		return -1;
-	}
- 
-	shaderProgram = glCreateProgram();
- 
-	glAttachShader(shaderProgram, vertexShader);
-	glAttachShader(shaderProgram, fragmentShader);
- 
-	glBindAttribLocation(shaderProgram, 0, "InVertex");
- 
-	if(bindTexCoord0)
-		glBindAttribLocation(shaderProgram, 1, "InTexCoord0");
- 
-	if(bindNormal)
-		glBindAttribLocation(shaderProgram, 2, "InNormal");
- 
-	if(bindColor)
-		glBindAttribLocation(shaderProgram, 3, "InColor");
- 
-	glLinkProgram(shaderProgram);
- 
-	GLint IsLinked;
-	glGetProgramiv(shaderProgram, GL_LINK_STATUS, (GLint *)&IsLinked);
-	if(IsLinked==false)
-	{
-		cout << "Failed to link shader." << endl;
- 
-		GLint maxLength;
-		glGetProgramiv(shaderProgram, GL_INFO_LOG_LENGTH, &maxLength);
-		if(maxLength>0)
-		{
-			char *pLinkInfoLog = new char[maxLength];
-			glGetProgramInfoLog(shaderProgram, maxLength, &maxLength, pLinkInfoLog);
-			cout << pLinkInfoLog << endl;
-			delete [] pLinkInfoLog;
-		}
- 
-		glDetachShader(shaderProgram, vertexShader);
-		glDetachShader(shaderProgram, fragmentShader);
-		glDeleteShader(vertexShader);
-		vertexShader=0;
-		glDeleteShader(fragmentShader);
-		fragmentShader=0;
-		glDeleteProgram(shaderProgram);
-		shaderProgram=0;
- 
-		return -1;
-	}
- 
-	return 1;		//Success
-}
-
 Mesh::Mesh() {
 	//maybe take params
 	//TODO: below was seg faulting
-	/*if(LoadShader("shaders/Shader1.vert", "shaders/Shader1.frag", false, false, true, ShaderProgram, VertexShader, FragmentShader)==-1)
+	if(loadShader("shaders/Shader1.vert", "shaders/Shader1.frag")==-1)
 	{
 		exit(1);
 	}
@@ -153,7 +47,7 @@ Mesh::Mesh() {
 	{
 		ProjectionModelviewMatrix_Loc=glGetUniformLocation(ShaderProgram, "ProjectionModelviewMatrix");
 	}
-	*/
+	
 	
 }
 
@@ -162,10 +56,11 @@ Mesh::~Mesh(){
 }
 
 
-void Mesh::set(const Eigen::Ref<Eigen::MatrixXd>& V,const Eigen::Ref<Eigen::MatrixXi>& F,int numFaces,int numVerts){
+//void Mesh::set(const Eigen::Ref<Eigen::MatrixXd>& V,const Eigen::Ref<Eigen::MatrixXi>& F,int numFaces,int numVerts){
+void Mesh::set(const char* fileName){
 	int i;
 	
-	for(i = 0; i < numFaces; i++){
+	/*for(i = 0; i < numFaces; i++){
 		Face f_row;
 		
         f_row.x = (int) F(i,0);
@@ -182,44 +77,48 @@ void Mesh::set(const Eigen::Ref<Eigen::MatrixXd>& V,const Eigen::Ref<Eigen::Matr
         verts.push_back(row);
     }
 
-	std::cout << "set" << std::endl;    
+	std::cout << "set" << std::endl;*/
 
-	glGenBuffers(1, &IBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(Face), &faces[0], GL_DYNAMIC_DRAW);
- 
-	//GLenum error=glGetError();
- 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
- 
-	//Create VBO for the quad
-	glGenBuffers(1, &VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    igl::readOBJ(fileName,V,F);
+  	V.rowwise() -= V.colwise().mean();
+  	V /= (V.colwise().maxCoeff()-V.colwise().minCoeff()).maxCoeff();
 
 
-	//this function changes the size of the VBO
-	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), &verts[0], GL_DYNAMIC_DRAW);
- 
-	//Just testing
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &IBO);
+	glGenBuffers(1, &VBO);
 	glBindVertexArray(VAO);
- 
-	//Bind the VBO and setup pointers for the VAO
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), BUFFER_OFFSET(0));
-	glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), BUFFER_OFFSET(sizeof(double)*3));
-	glEnableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(2);
-	glEnableVertexAttribArray(3);
- 
-	//Bind the IBO for the VAO
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(Face), &faces[0], GL_DYNAMIC_DRAW);
+  	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*F.size(), F.data(), GL_STATIC_DRAW);
+
+ 
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	//this function changes the size of the VBO
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float)*V.size(), V.data(), GL_STATIC_DRAW);
+	//glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), &verts[0], GL_DYNAMIC_DRAW);
+ 
+ 
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0); 
+	glBindVertexArray(0);
+
 }
         
-void Mesh::draw(){
-	float projectionModelviewMatrix[16];
+void Mesh::draw(Eigen::Matrix4f& proj, Eigen::Affine3f& model){
+	glUseProgram(ShaderProgram);
+	GLint proj_loc = glGetUniformLocation(ShaderProgram,"proj");
+	glUniformMatrix4fv(proj_loc,1,GL_FALSE,proj.data());
+	GLint model_loc = glGetUniformLocation(ShaderProgram,"model");
+	glUniformMatrix4fv(model_loc,1,GL_FALSE,model.matrix().data());
+
+	  // Draw mesh as wireframe
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glBindVertexArray(VAO);
+	glDrawElements(GL_TRIANGLES, F.size(), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+	/*float projectionModelviewMatrix[16];
  
 	//Just set it to identity matrix
 	memset(projectionModelviewMatrix, 0, sizeof(float)*16);
@@ -243,33 +142,119 @@ void Mesh::draw(){
 	//The first to last vertex is 0 to 3
 	//6 indices will be used to render the 2 triangles. This make our quad.
 	//The last parameter is the start address in the IBO => zero
-	glDrawRangeElements(GL_TRIANGLES, 0, 3, 6, GL_UNSIGNED_SHORT, NULL);
+	glDrawRangeElements(GL_TRIANGLES, 0, 3, 6, GL_UNSIGNED_SHORT, NULL);*/
 }
 
-void Mesh::loadShader(const char* vertexFileName, const char* fragmentFileName)
+int Mesh::loadShader(const char* vertexFileName, const char* fragmentFileName)
 {
-	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+	GLenum err = glewInit();
 
-	glShaderSource(vs, 1, (const GLchar**)&vertexFileName, NULL);
-	glCompileShader(vs);
-	GLuint vs_program = glCreateProgram();
-	glAttachShader(vs_program, vs);
-	glProgramParameteri(vs_program, GL_PROGRAM_SEPARABLE, GL_TRUE);
-	glLinkProgram(vs_program);
+	ShaderProgram = 0;
+    VertexShader = 0;
+    FragmentShader = 0;
+ 
+	// load shaders & get length of each
+	int vlen;
+	int flen;
+	std::string vertexShaderString = loadFile(vertexFileName);
+	std::string fragmentShaderString = loadFile(fragmentFileName);
+	vlen = vertexShaderString.length();
+	flen = fragmentShaderString.length();
+ 
+	if(vertexShaderString.empty()){return -1;}
+	if(fragmentShaderString.empty()){return -1;}
 
-	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+	VertexShader = glCreateShader(GL_VERTEX_SHADER);
+	FragmentShader = glCreateShader(GL_FRAGMENT_SHADER);	
 
-	glShaderSource(fs, 1, (const GLchar**)&fragmentFileName, NULL);
-	glCompileShader(fs);
-	GLuint fs_program = glCreateProgram();
-	glAttachShader(fs_program, fs);
-	glProgramParameteri(fs_program, GL_PROGRAM_SEPARABLE, GL_TRUE);
-	glLinkProgram(fs_program);
+	const char *vertexShaderCStr = vertexShaderString.c_str();
+	const char *fragmentShaderCStr = fragmentShaderString.c_str();
 
-	GLuint program_pipeline;
-	glGenProgramPipelines(1, &program_pipeline);
-	glUseProgramStages(program_pipeline, GL_VERTEX_SHADER_BIT, vs_program);
-	glUseProgramStages(program_pipeline, GL_FRAGMENT_SHADER_BIT, fs_program);
+	glShaderSource(VertexShader, 1, (const GLchar **)&vertexShaderCStr, &vlen);
+	glShaderSource(FragmentShader, 1, (const GLchar **)&fragmentShaderCStr, &flen);
+ 
+	GLint compiled;
+ 
+	glCompileShader(VertexShader);
+	glGetShaderiv(VertexShader, GL_COMPILE_STATUS, &compiled);
+	if(compiled==false)
+	{
+		cout << "Vertex shader not compiled." << endl;
+		printShaderInfoLog(VertexShader);
+ 
+		glDeleteShader(VertexShader);
+		VertexShader=0;
+		glDeleteShader(FragmentShader);
+		FragmentShader=0;
+ 
+		return -1;
+	}
+ 
+	glCompileShader(FragmentShader);
+	glGetShaderiv(FragmentShader, GL_COMPILE_STATUS, &compiled);
+	if(compiled==false)
+	{
+		cout << "Fragment shader not compiled." << endl;
+		printShaderInfoLog(FragmentShader);
+ 
+		glDeleteShader(VertexShader);
+		VertexShader=0;
+		glDeleteShader(FragmentShader);
+		FragmentShader=0;
+ 
+		return -1;
+	}
+ 
+	ShaderProgram = glCreateProgram();
+ 
+	glAttachShader(ShaderProgram, VertexShader);
+	glAttachShader(ShaderProgram, FragmentShader);
+ 
+	glBindAttribLocation(ShaderProgram, 0, "InVertex");
+ 
+	//if(bindTexCoord0)
+		glBindAttribLocation(ShaderProgram, 1, "InTexCoord0");
+ 
+	//if(bindNormal)
+		glBindAttribLocation(ShaderProgram, 2, "InNormal");
+ 
+	//if(bindColor)
+		glBindAttribLocation(ShaderProgram, 3, "InColor");
+ 
+	glLinkProgram(ShaderProgram);
+ 
+	GLint IsLinked;
+	glGetProgramiv(ShaderProgram, GL_LINK_STATUS, (GLint *)&IsLinked);
+	glDeleteShader(VertexShader);
+	glDeleteShader(FragmentShader);
+
+	if(IsLinked==false)
+	{
+		cout << "Failed to link shader." << endl;
+ 
+		GLint maxLength;
+		glGetProgramiv(ShaderProgram, GL_INFO_LOG_LENGTH, &maxLength);
+		if(maxLength>0)
+		{
+			char *pLinkInfoLog = new char[maxLength];
+			glGetProgramInfoLog(ShaderProgram, maxLength, &maxLength, pLinkInfoLog);
+			cout << pLinkInfoLog << endl;
+			delete [] pLinkInfoLog;
+		}
+ 
+		glDetachShader(ShaderProgram, VertexShader);
+		glDetachShader(ShaderProgram, FragmentShader);
+		glDeleteShader(VertexShader);
+		VertexShader=0;
+		glDeleteShader(FragmentShader);
+		FragmentShader=0;
+		glDeleteProgram(ShaderProgram);
+		ShaderProgram=0;
+ 
+		return -1;
+	}
+ 
+	return 1;		//Success
 }
 
 

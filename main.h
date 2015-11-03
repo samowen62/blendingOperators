@@ -34,7 +34,7 @@ class App {
       int aroundX = 0;
       int zoom = 0;//100
       int zoomY = 0;
-
+      int w=800,h=600;
       //ViewerData* vd;
 
     public: 

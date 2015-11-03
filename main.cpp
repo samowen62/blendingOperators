@@ -109,15 +109,14 @@ bool App::OnInit() {
     glFrontFace( GL_CCW );
     
     tipMesh = new Mesh();
-    tipMesh->set(V_tip, F_tip, F_tip.rows(), V_tip.rows() );
+    //tipMesh->set(V_tip, F_tip, F_tip.rows(), V_tip.rows() );
+    tipMesh->set("fMid.obj");
 
-    float width = 640;
-    float height = 480;
-    float ratio = (float) width / (float) height;
+    float ratio = (float) w / (float) h;
 
     glClearColor ( 0.8, 0.8, 0.9, 1.0 );
 
-    glViewport( 0, 0, ( GLsizei )width, ( GLsizei )height );
+    glViewport( 0, 0, ( GLsizei )w, ( GLsizei )h );
 
     /* change to the projection matrix and set our viewing volume. */
     glMatrixMode( GL_PROJECTION );
@@ -171,6 +170,20 @@ void App::OnRender() {
 
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    Eigen::Matrix4f proj = Eigen::Matrix4f::Identity();
+    float near = 0.01;
+    float far = 100;
+    float top = tan(35./360.*M_PI)*near;
+    float right = top * w/h;
+    igl::frustum(-right,right,-top,top,near,far,proj);
+    Eigen::Affine3f model = Eigen::Affine3f::Identity();
+    model.translate(Eigen::Vector3f(zoom,zoomY,-1.5));
+      // spin around
+    //static size_t count = 0;
+    model.rotate(Eigen::AngleAxisf(aroundX,Eigen::Vector3f(0,1,0)));
+
+
+/*
     glLoadIdentity();
     glTranslatef(0.f,0.f,-6.0f);
     glTranslatef(-zoom,0.f,0.f);
@@ -178,12 +191,13 @@ void App::OnRender() {
     glRotatef(aroundZ, 0.f, 0.f, 1.f);
     glRotatef(aroundX, 0.f, 1.f, 0.f);
 
-    glBegin( GL_TRIANGLES );            /* Drawing Using Triangles */
-      glVertex3f(  0.0f,  1.0f, 0.0f ); /* Top */
-      glVertex3f( -1.0f, -1.0f, 0.0f ); /* Bottom Left */
-      glVertex3f(  1.0f, -1.0f, 0.0f ); /* Bottom Right */
+    glBegin( GL_TRIANGLES );            
+      glVertex3f(  0.0f,  1.0f, 0.0f );
+      glVertex3f( -1.0f, -1.0f, 0.0f ); 
+      glVertex3f(  1.0f, -1.0f, 0.0f ); 
     glEnd( );
-
+*/
+    tipMesh->draw(proj, model);
     //draw finger
 
     SDL_RenderPresent(ren);

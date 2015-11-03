@@ -1,14 +1,8 @@
 //[FRAGMENT SHADER]
-#version 330
+#version 130
  
- 
-smooth in vec4 Color;
- 
- 
-out vec4 FragColor;
- 
- 
+out vec3 color;
 void main()
 {
-	FragColor = Color;
+  color = vec3(0.8,0.4,0.0);
 }
