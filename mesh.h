@@ -7,18 +7,7 @@
 #include <string.h>
 
 using namespace std;
-
-struct Vertex
-{
-  double x, y, z;
-};
-
-struct Face
-{
-  int x;
-  int y;
-  int z;
-};
+using namespace Eigen;
 
 struct VBOvertex
 {
@@ -28,28 +17,26 @@ struct VBOvertex
 
 class Mesh {
     private:
-      GLuint VAO;
-      GLuint IBO;
-      GLuint VBO;
-      
       GLuint  VertexShader;
       GLuint  FragmentShader;
+
       vector< VBOvertex > verticies;
-      //vector< vector< float > > verticies;
+      vector< Vector3f > vecVerts;
+      //this points index in above array to actual vertex data in the buffer
+      vector< vector <int> > VindexMap;
 
-      int numFaces;
-      int numVerts;
-      int ProjectionModelviewMatrix_Loc;
       int buff_size;
-      vector< Vertex > verts;
-      vector< Face > faces;
 
-      Eigen::MatrixXd V;
-      Eigen::MatrixXd TC; //don't need
-      Eigen::MatrixXd N;
-      Eigen::MatrixXi F;
-      Eigen::MatrixXi FTC; //don't need
-      Eigen::MatrixXi FN; //don't need
+      MatrixXd V;
+      MatrixXd TC; //don't need for anything
+      MatrixXd N;
+      MatrixXi F;
+      MatrixXi FTC; //don't need for anything
+      MatrixXi FN;
+
+      MatrixXd A;
+      MatrixXd B;
+      MatrixXd alpha_beta;
 
     public: 
 
@@ -60,13 +47,45 @@ class Mesh {
         //in java only final methods are not virtual
         virtual ~Mesh(void);
         
-        //void draw(Eigen::Matrix4f& proj, Eigen::Affine3f& model);
         void draw();
         int  loadShader(const char* vertexFileName, const char* fragmentFileName);
-        //void set(const Eigen::Ref<Eigen::MatrixXd>& V,const Eigen::Ref<Eigen::MatrixXi>& F,int numFaces,int numVerts);
         void set(const char* fileName);
         void generateVerticies();
+
+        //inline 
+        float l(Vector3f x, int ind){
+          return (x - vecVerts[ind]).norm();
+        }
+
+        float phi(float t){
+          return t*t*t;
+        }
+
+        float dphi(float t){
+          return 3*t*t;
+        }
+
+        float ddphi(float t){
+          return 6*t;
+        }
+
+        float b(Vector3f x, int ind){
+          return dphi(l(x, ind));
+        }
+
+        float c(Vector3f x, int ind){
+          float dist = l(x,ind);
+          if (dist == 0)
+            return 0;
+          return ( (1/(dist*dist)) * (ddphi(dist) - (dphi(dist)/dist)) );
+        }
+
+        void save_Vdata(int f,int j){
+          VindexMap[f].push_back(j);
+        }
 };
+
+
 
 #endif
 

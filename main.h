@@ -6,16 +6,15 @@
 #include "mesh.h"
 //viewer requires nanovg
 //#include <igl/viewer/Viewer.h>
-//using namespace mesh;
+
 
 class App {
     private:
 	    bool Running; 
        
-       //SDL_Surface*    Surf_Display;
       SDL_Window* win;
       SDL_Renderer* ren;
-      SDL_GLContext maincontext; /* Our opengl context handle */
+      SDL_GLContext maincontext;
       SDL_RendererInfo renderInfo;
 
       const Uint32 fps = 40;

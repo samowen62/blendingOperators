@@ -48,14 +48,9 @@ bool App::OnInit() {
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) /* Initialize SDL's Video subsystem */
         return false;
  
-    /* Request opengl 3.2 context.
-     * SDL doesn't have the ability to choose which profile at this time of writing,
-     * but it should default to the core profile */
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
  
-    /* Turn on double buffering with a 24bit Z buffer.
-     * You may need to change this to 16 or 32 for your system */
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
@@ -66,13 +61,10 @@ bool App::OnInit() {
     SDL_CreateWindowAndRenderer(800, 600, SDL_WINDOW_OPENGL, &win, &ren);
     SDL_GL_CreateContext(win);
     SDL_GetRendererInfo(ren, &renderInfo);
-    /*TODO: Check that we have OpenGL */
     if ((renderInfo.flags & SDL_RENDERER_ACCELERATED) == 0 || 
         (renderInfo.flags & SDL_RENDERER_TARGETTEXTURE) == 0) {
-        /*TODO: Handle this. We have no render surface and not accelerated. */
     }
  
-    /* This makes our buffer swap syncronized with the monitor's vertical refresh */
     SDL_GL_SetSwapInterval(1);
 
     glShadeModel(GL_SMOOTH);
@@ -92,9 +84,8 @@ bool App::OnInit() {
     glFrontFace( GL_CCW );
 
     tipMesh = new Mesh();
-    //tipMesh->set(V_tip, F_tip, F_tip.rows(), V_tip.rows() );
     tipMesh->set("fTip3.obj");
-    //tipMesh->set("fTip2.obj");
+    //tipMesh->set("fMid2.obj");
 
     float ratio = (float) w / (float) h;
 
@@ -152,7 +143,7 @@ void App::OnEvent(SDL_Event* Event) {
              break;
 
        }
-       fprintf(stdout, "%f, %f, %f\n", zoom, zoomY, zoomZ);
+       //fprintf(stdout, "%f, %f, %f\n", zoom, zoomY, zoomZ);
     }
 }
 
@@ -160,7 +151,7 @@ void App::OnRender() {
 
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-/*    Eigen::Matrix4f proj = Eigen::Matrix4f::Identity();
+/*  Eigen::Matrix4f proj = Eigen::Matrix4f::Identity();
     float near = 0.01;
     float far = 100;
     float top = tan(35./360.*M_PI)*near;

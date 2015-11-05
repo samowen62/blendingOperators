@@ -38,148 +38,156 @@ void printShaderInfoLog(GLint shader)
 
 Mesh::Mesh() {
 	//maybe take params
-	//TODO: below was seg faulting
 	if(loadShader("shaders/Shader1.vert", "shaders/Shader1.frag")==-1)
 	{
 		exit(1);
-	}
-	else
-	{
-		ProjectionModelviewMatrix_Loc=glGetUniformLocation(ShaderProgram, "ProjectionModelviewMatrix");
-	}
-	
+	}	
 	
 }
 
 Mesh::~Mesh(){
-
+	delete [] &verticies;
+	delete [] &vecVerts;
 }
 
 void Mesh::generateVerticies(){
 	int j = 0;
-	int f;
+	int f,fn;
+	int num_verts = V.rows();
+	
+	B.resize(num_verts * 4, 1);
+	vecVerts.resize(num_verts);
+
+	for(int i = 0; i < num_verts; i++){
+		vector <int> newColumn;
+		VindexMap.push_back(newColumn);
+	}
+
+	cout << "Size " << VindexMap[0].size() << endl;
 
 	for (unsigned int i = 0; i < F.rows(); i++) {
-		
-/*
-		f = F(i,0);		
-		verticies.push_back({ V(f,0), V(f,1), V(f,2) });
-		f = F(i,1);		
-		verticies.push_back({ V(f,0), V(f,1), V(f,2) });
-		f = F(i,2);		
-		verticies.push_back({ V(f,0), V(f,1), V(f,2) });
-*/		
+
 		f = F(i,0);
+		fn = FN(i,0);
+		save_Vdata(f,j);
 		verticies[j].x = V(f,0); verticies[j].y = V(f,1); verticies[j].z = V(f,2);
-		verticies[j].nx = N(f,0); verticies[j].ny = N(f,1); verticies[j].nz = N(f,2);
+		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
 		j++;
 
 
 		f = F(i,1);
+		fn = FN(i,0);
+		save_Vdata(f,j);
 		verticies[j].x = V(f,0); verticies[j].y = V(f,1); verticies[j].z = V(f,2);
-		verticies[j].nx = N(f,0); verticies[j].ny = N(f,1); verticies[j].nz = N(f,2);
+		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
 		j++;
 
 		f = F(i,2);
+		fn = FN(i,0);
+		save_Vdata(f,j);
 		verticies[j].x = V(f,0); verticies[j].y = V(f,1); verticies[j].z = V(f,2);
-		verticies[j].nx = N(f,0); verticies[j].ny = N(f,1); verticies[j].nz = N(f,2);
+		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
 		j++;
 
 	}
-	//delete [] verticies;//to delete
 
-	//for(auto k: verticies)
-	//	cout << k.x << ' ' << k.y << ' ' << k.z << endl;
+	for(unsigned int i = 0; i < num_verts; i++){
+		vector < float > n_avg = {0, 0, 0};
+		int size = VindexMap[i].size();
+		for(int j = 0; j < size; j++) {
+			VBOvertex vert = verticies[VindexMap[i][j]];
+			n_avg[0] += vert.x;
+			n_avg[1] += vert.y;
+			n_avg[2] += vert.z;
+		}
+		B(4*i, 0) = 0;
+		B(4*i+1, 0) = size == 0 ? 0 : n_avg[0] / size;
+		B(4*i+2, 0) = size == 0 ? 0 : n_avg[1] / size;
+		B(4*i+3, 0) = size == 0 ? 0 : n_avg[2] / size;
+
+		Vector3f v1;
+		v1 << V(i,0), V(i,1), V(i,2);
+		vecVerts[i] = v1;
+	}
+
+	cout << "computing A..." << endl;
+
+	A.resize(num_verts * 4,num_verts * 4); //the 4 is because of the scalar and vector component we are solving for
+	int x_o, y_o;
+	float a1, a2, a3, _c, d1, d2, d3;
+	Vector3f x;
+	Vector3f _d;
+
+	for(int i = 0; i < num_verts; i++){
+		for(int j = 0; j < num_verts; j++){
+			//x and y offset and current x (x_j)
+			x_o = i*4;
+			y_o = j*4;
+			x = vecVerts[j];
+			float grad = b(x, i);
+			a1 = grad * (x(0) - vecVerts[i](0));
+			a2 = grad * (x(1) - vecVerts[i](1));
+			a3 = grad * (x(2) - vecVerts[i](2));
+
+			A(x_o,y_o) = phi(l(x, i));
+			A(x_o + 1,y_o) = a1; A(x_o,y_o + 1) = a1;
+			A(x_o + 2,y_o) = a2; A(x_o,y_o + 2) = a2;
+			A(x_o + 3,y_o) = a3; A(x_o,y_o + 3) = a3;
+
+			_c = c(x, i);
+			_d = x - vecVerts[i];
+			d1 = _d(0);
+			d2 = _d(1);
+			d3 = _d(2);
+
+			A(x_o+1,y_o+1) = _c*d1*d1+grad; A(x_o+1,y_o+2) = _c*d1*d2; A(x_o+1,y_o+3) = _c*d1*d3;
+			A(x_o+2,y_o+1) = _c*d2*d1; A(x_o+2,y_o+2) = _c*d2*d2+grad; A(x_o+2,y_o+3) = _c*d2*d3;
+			A(x_o+3,y_o+1) = _c*d3*d1; A(x_o+3,y_o+2) = _c*d3*d2; A(x_o+3,y_o+3) = _c*d3*d3+grad;
+
+		}
+	}
+
+	cout << "solving the equation..." << endl;
+
+	alpha_beta = A.fullPivLu().solve(B);
+	double error = (A*alpha_beta - B).norm() / B.norm();
+
+	cout << "solved! Error: " << error << endl;
+
 }
 
-//void Mesh::set(const Eigen::Ref<Eigen::MatrixXd>& V,const Eigen::Ref<Eigen::MatrixXi>& F,int numFaces,int numVerts){
 void Mesh::set(const char* fileName){
 	int i;
-	//igl::readOBJ(fileName,V,F);
 	igl::readOBJ(fileName,V,TC,N,F,FTC,FN);
 
-/*
-	for(i = 0; i < F.rows(); i++){
-		Face f_row;
-		
-        f_row.x = (int) F(i,0);
-        f_row.y = (int) F(i,1);
-        f_row.z = (int) F(i,2);
-      	faces.push_back(f_row);
-    }    
-
-	for(i = 0; i < V.rows(); i++){
-        Vertex row;
-        row.x = (double) V(i,0);
-        row.y = (double) V(i,1);
-        row.z = (double) V(i,2);
-        verts.push_back(row);
-    }
-*/
     buff_size = F.rows() * 3;
-    //VBOvertex verticies[buff_size];
-    verticies.resize(buff_size);
+    verticies.resize(buff_size);    
     this->generateVerticies();
-		
+		    
+  	//V.rowwise() -= V.colwise().mean();
+  	//V /= (V.colwise().maxCoeff()-V.colwise().minCoeff()).maxCoeff();
 
-    
-  	V.rowwise() -= V.colwise().mean();
-  	V /= (V.colwise().maxCoeff()-V.colwise().minCoeff()).maxCoeff();
-
-    //std::cout << "V size: " << V.rows() << "x" << V.cols() << std::endl;
-    //std::cout << "F size: " << F.rows() << "x" << F.cols() << std::endl;
-
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &IBO);
-	glGenBuffers(1, &VBO);
-	glBindVertexArray(VAO);
-
- 
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	//this function changes the size of the VBO
-	//glBufferData(GL_ARRAY_BUFFER, sizeof(VBOvertex) * buff_size, &verticies, GL_DYNAMIC_DRAW);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(verticies), &verticies, GL_DYNAMIC_DRAW);
-	//glBufferData(GL_ARRAY_BUFFER, sizeof(float)*V.size(), V.data(), GL_DYNAMIC_DRAW);
-	//glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), &verts[0], GL_DYNAMIC_DRAW);
- 	
- 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(Face), &faces[0], GL_DYNAMIC_DRAW);
-  	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*F.size(), F.data(), GL_DYNAMIC_DRAW);
-
- 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-	glEnableVertexAttribArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0); 
-	glBindVertexArray(0);
+    /*cout << "V size: " << V.rows() << "x" << V.cols() << endl;
+    cout << "N size: " << N.rows() << "x" << N.cols() << endl;
+    cout << "F size: " << F.rows() << "x" << F.cols() << endl;
+    cout << "FN size: " << FN.rows() << "x" << FN.cols() << endl;*/
 
 }
         
-//void Mesh::draw(Eigen::Matrix4f& proj, Eigen::Affine3f& model){
 void Mesh::draw(){
 	glPushMatrix();
-	glBegin(GL_LINE_LOOP);
+	glUseProgram(ShaderProgram);
+	glBegin(GL_TRIANGLES);
 	glColor3f(0.f,0.f,0.f);
 	for(auto & v : verticies) {
+		glNormal3f(v.nx,v.ny,v.nz);
 	    glVertex3f(v.x, v.y, v.z);
 	}
-//		glNormal3f(0.f,0.f,1.f);
 
 	glEnd();
+	glUseProgram(0);
 	glPopMatrix();
-/*
-	glUseProgram(ShaderProgram);
-	GLint proj_loc = glGetUniformLocation(ShaderProgram,"proj");
-	glUniformMatrix4fv(proj_loc,1,GL_FALSE,proj.data());
-	GLint model_loc = glGetUniformLocation(ShaderProgram,"model");
-	glUniformMatrix4fv(model_loc,1,GL_FALSE,model.matrix().data());
 
-	  // Draw mesh as wireframe
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glBindVertexArray(VAO);
-	glDrawArrays(GL_TRIANGLES, 0, sizeof(VBOvertex) * buff_size);
-	//glDrawElements(GL_TRIANGLES, F.size(), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
-*/
 }
 
 int Mesh::loadShader(const char* vertexFileName, const char* fragmentFileName)
