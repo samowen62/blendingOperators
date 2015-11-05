@@ -44,23 +44,6 @@ bool App::OnInit() {
     if(SDL_Init(SDL_INIT_VIDEO) < 0) {
         return false;
     }
-
-    // V + F - E = -1 ?
-    //separate the objects
-//    igl::readOBJ("fTip2.obj", V_tip, TC_tip, N_tip, F_tip, FTC_tip, FN_tip);
-
-    igl::readOBJ("fTip2.obj", V_tip, F_tip);
-
-    //pretty sure there are 2 faces per quad since triangles
-    //line i looks like f v1/1/i v2/2/i v3/3/i (v3[/vt3][/vn3])
-    std::cout << "V_tip size: " << V_tip.rows() << "x" << V_tip.cols() << std::endl;
-    // std::cout << "N_tip size: "  << N_tip.rows() << "x" << N_tip.cols() << std::endl;
-    std::cout << "F_tip size: " << F_tip.rows() << "x" << F_tip.cols() << std::endl;
-
-    //matrix is 477x3, F_tip(0,3) is invalid
-
-    //std::cout << "FTC_tip size: " << FTC_tip.rows() << "x" << FTC_tip.cols() << std::endl;
-    //std::cout << "FN_tip size: " << FN_tip.rows() << "x" << FN_tip.cols() << std::endl;
  
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) /* Initialize SDL's Video subsystem */
         return false;
@@ -101,16 +84,17 @@ bool App::OnInit() {
     
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
-    GLfloat lmodel_ambient[] = { 0.8, 0.0, 0.0, 0.0 };
+    GLfloat lmodel_ambient[] = { 0.0, 0.0, 0.0, 0.0 };
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, lmodel_ambient);
 
     glEnable( GL_CULL_FACE );
     glCullFace( GL_BACK );
     glFrontFace( GL_CCW );
-    
+
     tipMesh = new Mesh();
     //tipMesh->set(V_tip, F_tip, F_tip.rows(), V_tip.rows() );
-    tipMesh->set("fMid.obj");
+    tipMesh->set("fTip3.obj");
+    //tipMesh->set("fTip2.obj");
 
     float ratio = (float) w / (float) h;
 
@@ -121,7 +105,7 @@ bool App::OnInit() {
     /* change to the projection matrix and set our viewing volume. */
     glMatrixMode( GL_PROJECTION );
     glLoadIdentity( );
-    gluPerspective( 45.0f, ratio, 0.1f, 100.0f );
+    gluPerspective( 45.0f, ratio, 0.1f, 1000.0f );
     glMatrixMode( GL_MODELVIEW );
 
     glLoadIdentity( );
@@ -149,20 +133,26 @@ void App::OnEvent(SDL_Event* Event) {
              aroundX = (aroundX - 3) % 360;
              break;
           case SDLK_z:
-             zoom += 1;
+             zoom += 0.1;
              break;
           case SDLK_x:
-             zoom -= 1;
+             zoom -= 0.1;
              break;
           case SDLK_c:
-             zoomY += 1;
+             zoomY += 0.1;
              break;
           case SDLK_v:
-             zoomY -= 1;
+             zoomY -= 0.1;
              break;
+          case SDLK_b:
+             zoomZ += 0.1;
+             break;
+          case SDLK_n:
+             zoomZ -= 0.1;
+             break;
+
        }
-       fprintf(stdout, "aroundX and Z %d, %d\n", aroundX, aroundZ);
-       fprintf(stdout, "%d, %d\n", zoom, zoomY);
+       fprintf(stdout, "%f, %f, %f\n", zoom, zoomY, zoomZ);
     }
 }
 
@@ -170,35 +160,27 @@ void App::OnRender() {
 
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    Eigen::Matrix4f proj = Eigen::Matrix4f::Identity();
+/*    Eigen::Matrix4f proj = Eigen::Matrix4f::Identity();
     float near = 0.01;
     float far = 100;
     float top = tan(35./360.*M_PI)*near;
     float right = top * w/h;
     igl::frustum(-right,right,-top,top,near,far,proj);
     Eigen::Affine3f model = Eigen::Affine3f::Identity();
-    model.translate(Eigen::Vector3f(zoom,zoomY,-1.5));
-      // spin around
-    //static size_t count = 0;
+    model.translate(Eigen::Vector3f(zoom,zoomY,-5));
     model.rotate(Eigen::AngleAxisf(aroundX,Eigen::Vector3f(0,1,0)));
 
+*/
 
-/*
     glLoadIdentity();
-    glTranslatef(0.f,0.f,-6.0f);
+    glTranslatef(0.f,0.f,zoomZ);
     glTranslatef(-zoom,0.f,0.f);
     glTranslatef(0.f,-zoomY,0.f);
     glRotatef(aroundZ, 0.f, 0.f, 1.f);
     glRotatef(aroundX, 0.f, 1.f, 0.f);
 
-    glBegin( GL_TRIANGLES );            
-      glVertex3f(  0.0f,  1.0f, 0.0f );
-      glVertex3f( -1.0f, -1.0f, 0.0f ); 
-      glVertex3f(  1.0f, -1.0f, 0.0f ); 
-    glEnd( );
-*/
-    tipMesh->draw(proj, model);
-    //draw finger
+    //tipMesh->draw(proj, model);
+    tipMesh->draw();
 
     SDL_RenderPresent(ren);
     SDL_GL_SwapWindow(win);
@@ -214,17 +196,3 @@ App::~App(void)
     OnCleanup();
 }
 
-void App::tip(){
-
-    /*int i;
-
-    Eigen::Vector3d row;
-    //matrix is 477x3, F_tip(0,3) is invalid
-    glBegin(GL_TRIANGLES);
-    for(i = 0; i < F_tip.rows(); i++){
-        row = F_tip.row(i);//i'th row ConstRowXpr or RowXpr
-        glVertex3f(V_tip(row(0),0), V_tip(row(0),1), V_tip(row(0),2));
-        glVertex3f(V_tip(row(1),0), V_tip(row(1),1), V_tip(row(1),2));
-        glVertex3f(V_tip(row(2),0), V_tip(row(2),1), V_tip(row(2),2));
-    }*/
-}

@@ -55,12 +55,51 @@ Mesh::~Mesh(){
 
 }
 
+void Mesh::generateVerticies(){
+	int j = 0;
+	int f;
+
+	for (unsigned int i = 0; i < F.rows(); i++) {
+		
+/*
+		f = F(i,0);		
+		verticies.push_back({ V(f,0), V(f,1), V(f,2) });
+		f = F(i,1);		
+		verticies.push_back({ V(f,0), V(f,1), V(f,2) });
+		f = F(i,2);		
+		verticies.push_back({ V(f,0), V(f,1), V(f,2) });
+*/		
+		f = F(i,0);
+		verticies[j].x = V(f,0); verticies[j].y = V(f,1); verticies[j].z = V(f,2);
+		verticies[j].nx = N(f,0); verticies[j].ny = N(f,1); verticies[j].nz = N(f,2);
+		j++;
+
+
+		f = F(i,1);
+		verticies[j].x = V(f,0); verticies[j].y = V(f,1); verticies[j].z = V(f,2);
+		verticies[j].nx = N(f,0); verticies[j].ny = N(f,1); verticies[j].nz = N(f,2);
+		j++;
+
+		f = F(i,2);
+		verticies[j].x = V(f,0); verticies[j].y = V(f,1); verticies[j].z = V(f,2);
+		verticies[j].nx = N(f,0); verticies[j].ny = N(f,1); verticies[j].nz = N(f,2);
+		j++;
+
+	}
+	//delete [] verticies;//to delete
+
+	//for(auto k: verticies)
+	//	cout << k.x << ' ' << k.y << ' ' << k.z << endl;
+}
 
 //void Mesh::set(const Eigen::Ref<Eigen::MatrixXd>& V,const Eigen::Ref<Eigen::MatrixXi>& F,int numFaces,int numVerts){
 void Mesh::set(const char* fileName){
 	int i;
-	
-	/*for(i = 0; i < numFaces; i++){
+	//igl::readOBJ(fileName,V,F);
+	igl::readOBJ(fileName,V,TC,N,F,FTC,FN);
+
+/*
+	for(i = 0; i < F.rows(); i++){
 		Face f_row;
 		
         f_row.x = (int) F(i,0);
@@ -69,35 +108,44 @@ void Mesh::set(const char* fileName){
       	faces.push_back(f_row);
     }    
 
-	for(i = 0; i < numVerts; i++){
+	for(i = 0; i < V.rows(); i++){
         Vertex row;
         row.x = (double) V(i,0);
         row.y = (double) V(i,1);
         row.z = (double) V(i,2);
         verts.push_back(row);
     }
+*/
+    buff_size = F.rows() * 3;
+    //VBOvertex verticies[buff_size];
+    verticies.resize(buff_size);
+    this->generateVerticies();
+		
 
-	std::cout << "set" << std::endl;*/
-
-    igl::readOBJ(fileName,V,F);
+    
   	V.rowwise() -= V.colwise().mean();
   	V /= (V.colwise().maxCoeff()-V.colwise().minCoeff()).maxCoeff();
 
+    //std::cout << "V size: " << V.rows() << "x" << V.cols() << std::endl;
+    //std::cout << "F size: " << F.rows() << "x" << F.cols() << std::endl;
 
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &IBO);
 	glGenBuffers(1, &VBO);
 	glBindVertexArray(VAO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
-	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(Face), &faces[0], GL_DYNAMIC_DRAW);
-  	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*F.size(), F.data(), GL_STATIC_DRAW);
 
  
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	//this function changes the size of the VBO
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float)*V.size(), V.data(), GL_STATIC_DRAW);
+	//glBufferData(GL_ARRAY_BUFFER, sizeof(VBOvertex) * buff_size, &verticies, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verticies), &verticies, GL_DYNAMIC_DRAW);
+	//glBufferData(GL_ARRAY_BUFFER, sizeof(float)*V.size(), V.data(), GL_DYNAMIC_DRAW);
 	//glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(Vertex), &verts[0], GL_DYNAMIC_DRAW);
- 
+ 	
+ 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(Face), &faces[0], GL_DYNAMIC_DRAW);
+  	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*F.size(), F.data(), GL_DYNAMIC_DRAW);
+
  
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
 	glEnableVertexAttribArray(0);
@@ -106,7 +154,19 @@ void Mesh::set(const char* fileName){
 
 }
         
-void Mesh::draw(Eigen::Matrix4f& proj, Eigen::Affine3f& model){
+//void Mesh::draw(Eigen::Matrix4f& proj, Eigen::Affine3f& model){
+void Mesh::draw(){
+	glPushMatrix();
+	glBegin(GL_LINE_LOOP);
+	glColor3f(0.f,0.f,0.f);
+	for(auto & v : verticies) {
+	    glVertex3f(v.x, v.y, v.z);
+	}
+//		glNormal3f(0.f,0.f,1.f);
+
+	glEnd();
+	glPopMatrix();
+/*
 	glUseProgram(ShaderProgram);
 	GLint proj_loc = glGetUniformLocation(ShaderProgram,"proj");
 	glUniformMatrix4fv(proj_loc,1,GL_FALSE,proj.data());
@@ -116,33 +176,10 @@ void Mesh::draw(Eigen::Matrix4f& proj, Eigen::Affine3f& model){
 	  // Draw mesh as wireframe
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glBindVertexArray(VAO);
-	glDrawElements(GL_TRIANGLES, F.size(), GL_UNSIGNED_INT, 0);
+	glDrawArrays(GL_TRIANGLES, 0, sizeof(VBOvertex) * buff_size);
+	//glDrawElements(GL_TRIANGLES, F.size(), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
-	/*float projectionModelviewMatrix[16];
- 
-	//Just set it to identity matrix
-	memset(projectionModelviewMatrix, 0, sizeof(float)*16);
-	projectionModelviewMatrix[0]=1.0;
-	projectionModelviewMatrix[5]=1.0;
-	projectionModelviewMatrix[10]=1.0;
-	projectionModelviewMatrix[15]=1.0;
- 
-	//Clear all the buffers
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
- 
-	//Bind the shader that we want to use
-	glUseProgram(ShaderProgram);
-	//Setup all uniforms for your shader
-	glUniformMatrix4fv(ProjectionModelviewMatrix_Loc, 1, false, projectionModelviewMatrix);
-	//Bind the VAO
-	glBindVertexArray(VAO);
-	//At this point, we would bind textures but we aren't using textures in this example
- 
-	//Draw command
-	//The first to last vertex is 0 to 3
-	//6 indices will be used to render the 2 triangles. This make our quad.
-	//The last parameter is the start address in the IBO => zero
-	glDrawRangeElements(GL_TRIANGLES, 0, 3, 6, GL_UNSIGNED_SHORT, NULL);*/
+*/
 }
 
 int Mesh::loadShader(const char* vertexFileName, const char* fragmentFileName)
