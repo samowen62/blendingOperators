@@ -26,19 +26,63 @@ int App::OnExecute() {
         if (SDL_GetTicks () - frametime < minframetime)
             SDL_Delay (minframetime - (SDL_GetTicks () - frametime));
 
-    	//OnLoop();
     	OnRender();
 	}
 
 	OnCleanup();
 	return 0;
 }
- 
-int main(int argc, char* argv[]) {
-    App theApp;
- 
-    return theApp.OnExecute();
+
+void App::setFile(const char* file){
+  meshFile.append(file);
 }
+/*
+ *  Generates an .hrbf file with alpha and beta coefficients corresponding
+ *  to the order of verticies in the original obj file
+ *
+ *  obj: name of .obj file
+ */
+void genHrbf(const char* obj){
+  Mesh source;
+  source.set(obj);
+  source.generateVerticies();
+  source.generateHrbfCoefs();
+  source.writeHrbf();
+  return;
+}
+
+int main(int argc, char* argv[]) {
+    std::string mode;
+    mode.append(argv[1]);
+
+    if(mode == "viewer"){
+
+      if(argc < 3){
+        fprintf(stderr, "Usage: ./out viewer <file>.obj\n" );
+        exit(1);
+      }
+
+      App theApp;
+      theApp.setFile(argv[2]);
+ 
+      return theApp.OnExecute();
+    }else if(mode == "hrbf"){
+      if(argc < 3){
+        fprintf(stderr, "Usage: ./out hrbf <file>.obj\n" );
+        exit(1);
+      }
+
+      genHrbf(argv[2]);
+      //seg faults for some reason?
+
+    }else{
+      fprintf(stderr, "Usage: ./out [viewer/hrbf] <file>.obj\n" );
+      exit(1);
+    }
+    return 0;
+}
+
+
 
 bool App::OnInit() {
     if(SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -83,9 +127,9 @@ bool App::OnInit() {
     glCullFace( GL_BACK );
     glFrontFace( GL_CCW );
 
-    tipMesh = new Mesh();
-    tipMesh->set("fTip3.obj");
-    //tipMesh->set("fMid2.obj");
+    mesh = new Mesh("Shader1");
+    mesh->set(meshFile.c_str());
+    mesh->generateVerticies();
 
     float ratio = (float) w / (float) h;
 
@@ -171,7 +215,7 @@ void App::OnRender() {
     glRotatef(aroundX, 0.f, 1.f, 0.f);
 
     //tipMesh->draw(proj, model);
-    tipMesh->draw();
+    mesh->draw();
 
     SDL_RenderPresent(ren);
     SDL_GL_SwapWindow(win);

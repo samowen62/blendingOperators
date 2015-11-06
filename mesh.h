@@ -15,6 +15,23 @@ struct VBOvertex
   float nx, ny, nz;     // Normal
 };
 
+inline vector<string> &split(const string &s, char delim, vector<string> &elems) {
+    stringstream ss(s);
+    string item;
+    while (getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+    return elems;
+}
+
+
+inline vector<string> split(const string &s, char delim) {
+    vector<string> elems;
+    split(s, delim, elems);
+    return elems;
+}
+
+
 class Mesh {
     private:
       GLuint  VertexShader;
@@ -25,6 +42,7 @@ class Mesh {
       //this points index in above array to actual vertex data in the buffer
       vector< vector <int> > VindexMap;
 
+      string base;
       int buff_size;
 
       MatrixXd V;
@@ -42,6 +60,7 @@ class Mesh {
 
         GLuint  ShaderProgram;
         Mesh();
+        Mesh(const char* shaderFile);
         //make virtual so that other desctructed instances of classes extending
         //this one called as a Mesh get both destructors
         //in java only final methods are not virtual
@@ -51,6 +70,8 @@ class Mesh {
         int  loadShader(const char* vertexFileName, const char* fragmentFileName);
         void set(const char* fileName);
         void generateVerticies();
+        void generateHrbfCoefs();
+        void writeHrbf();
 
         //inline 
         float l(Vector3f x, int ind){

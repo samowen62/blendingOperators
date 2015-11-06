@@ -16,11 +16,12 @@ class App {
       SDL_Renderer* ren;
       SDL_GLContext maincontext;
       SDL_RendererInfo renderInfo;
+      std::string meshFile;
 
       const Uint32 fps = 40;
       const Uint32 minframetime = 1000 / fps;
 
-      Mesh* tipMesh;
+      Mesh* mesh;
 
       int aroundZ = 0;
       int aroundX = 0;
@@ -41,6 +42,7 @@ class App {
         void OnLoop();
         void OnRender();
         void OnCleanup();
+        void setFile(const char* file);
 
 };
  

@@ -36,16 +36,25 @@ void printShaderInfoLog(GLint shader)
 	}
 }
 
-Mesh::Mesh() {
-	//maybe take params
-	if(loadShader("shaders/Shader1.vert", "shaders/Shader1.frag")==-1)
+Mesh::Mesh(const char* shaderFile){
+	string file, vert, frag;
+	file.append(shaderFile);
+	vert = "shaders/" + file + ".vert";
+	frag = "shaders/" + file + ".frag";
+	cout << vert << frag << endl;
+
+	if(loadShader(vert.c_str(), frag.c_str())==-1)
 	{
 		exit(1);
-	}	
+	}
+};
+
+Mesh::Mesh() {
 	
 }
 
 Mesh::~Mesh(){
+	delete [] & VindexMap;
 	delete [] &verticies;
 	delete [] &vecVerts;
 }
@@ -54,16 +63,11 @@ void Mesh::generateVerticies(){
 	int j = 0;
 	int f,fn;
 	int num_verts = V.rows();
-	
-	B.resize(num_verts * 4, 1);
-	vecVerts.resize(num_verts);
 
 	for(int i = 0; i < num_verts; i++){
 		vector <int> newColumn;
 		VindexMap.push_back(newColumn);
 	}
-
-	cout << "Size " << VindexMap[0].size() << endl;
 
 	for (unsigned int i = 0; i < F.rows(); i++) {
 
@@ -90,6 +94,12 @@ void Mesh::generateVerticies(){
 		j++;
 
 	}
+}
+
+void Mesh::generateHrbfCoefs(){
+	int num_verts = V.rows();
+	B.resize(num_verts * 4, 1);
+	vecVerts.resize(num_verts);
 
 	for(unsigned int i = 0; i < num_verts; i++){
 		vector < float > n_avg = {0, 0, 0};
@@ -110,7 +120,6 @@ void Mesh::generateVerticies(){
 		vecVerts[i] = v1;
 	}
 
-	cout << "computing A..." << endl;
 
 	A.resize(num_verts * 4,num_verts * 4); //the 4 is because of the scalar and vector component we are solving for
 	int x_o, y_o;
@@ -153,16 +162,36 @@ void Mesh::generateVerticies(){
 	double error = (A*alpha_beta - B).norm() / B.norm();
 
 	cout << "solved! Error: " << error << endl;
+}
 
+void Mesh::writeHrbf(){
+	ofstream out;
+	string file;
+	file = base + ".hrbf";
+	out.open(file);
+	int num_verts = V.rows();
+
+	for(int i = 0; i < num_verts; i++){
+		int b = 4 * i;
+		out << alpha_beta(b,0) << " ";
+		out << alpha_beta(b+1,0) << " ";
+		out << alpha_beta(b+2,0) << " ";
+		out << alpha_beta(b+3,0) << "\n";
+	}
+	out.close();
 }
 
 void Mesh::set(const char* fileName){
+	string b;
+	b.append(fileName);
+	vector< string > sp_string = split(b, '.');
+	base = sp_string[0];
+
 	int i;
 	igl::readOBJ(fileName,V,TC,N,F,FTC,FN);
 
     buff_size = F.rows() * 3;
     verticies.resize(buff_size);    
-    this->generateVerticies();
 		    
   	//V.rowwise() -= V.colwise().mean();
   	//V /= (V.colwise().maxCoeff()-V.colwise().minCoeff()).maxCoeff();
