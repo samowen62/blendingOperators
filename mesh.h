@@ -39,7 +39,8 @@ class Mesh {
 
       vector< VBOvertex > verticies;
       vector< Vector3f > vecVerts;
-      //this points index in above array to actual vertex data in the buffer
+      
+      /* this points an index in the above array to actual vertex data in the buffer */
       vector< vector <int> > VindexMap;
 
       string base;
@@ -54,6 +55,7 @@ class Mesh {
 
       MatrixXd A;
       MatrixXd B;
+      /* used to both generate the coefficients and store them when read in */
       MatrixXd alpha_beta;
 
     public: 
@@ -72,8 +74,9 @@ class Mesh {
         void generateVerticies();
         void generateHrbfCoefs();
         void writeHrbf();
+        void readHrbf();
+        
 
-        //inline 
         float l(Vector3f x, int ind){
           return (x - vecVerts[ind]).norm();
         }

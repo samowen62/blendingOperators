@@ -20,16 +20,18 @@ class App {
 
       const Uint32 fps = 40;
       const Uint32 minframetime = 1000 / fps;
+      const double step = 0.03;
 
       Mesh* mesh;
 
       int aroundZ = 0;
       int aroundX = 0;
-      float zoom = 0.f;//100
+      float zoom = 0.f;
       float zoomY = 0.f;
       float zoomZ = -0.5;
       int w=800,h=600;
-      //ViewerData* vd;
+
+      vector<bool> k_down = {0,0,0,0,0,0,0,0,0,0};
 
     public: 
         App();
@@ -43,6 +45,7 @@ class App {
         void OnRender();
         void OnCleanup();
         void setFile(const char* file);
+        void key_read();
 
 };
  

@@ -164,6 +164,40 @@ void Mesh::generateHrbfCoefs(){
 	cout << "solved! Error: " << error << endl;
 }
 
+//call this function after we have V,N and F
+void Mesh::readHrbf(){
+	string line;
+	string file;
+	file = base + ".hrbf";
+  	ifstream in (file);
+  	vector <string> sp_line;
+
+  	int num_verts = V.rows();
+	alpha_beta.resize(num_verts, 4);
+
+  	if (in.is_open())
+  	{
+  		int i = 0;
+    	while ( getline (in,line) )
+    	{
+    		sp_line = split(line, ' ');
+    		if(sp_line.size() != 4){
+    			fprintf(stderr, "Error in hrbf file. Needs 4 columns\n");
+    			return;
+    		}
+
+    		alpha_beta(i, 0) = stod(sp_line[0]);
+    		alpha_beta(i, 1) = stod(sp_line[1]);
+    		alpha_beta(i, 2) = stod(sp_line[2]);
+    		alpha_beta(i, 3) = stod(sp_line[3]);
+      		i++;
+    	}
+    	in.close();
+    }
+  	else 
+  		fprintf(stderr, "Unable to process hrbf file\n");
+}
+
 void Mesh::writeHrbf(){
 	ofstream out;
 	string file;

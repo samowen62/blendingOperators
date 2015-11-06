@@ -130,6 +130,7 @@ bool App::OnInit() {
     mesh = new Mesh("Shader1");
     mesh->set(meshFile.c_str());
     mesh->generateVerticies();
+    mesh->readHrbf();
 
     float ratio = (float) w / (float) h;
 
@@ -154,44 +155,105 @@ void App::OnEvent(SDL_Event* Event) {
     }
 
     if(Event->type == SDL_KEYUP){
-        switch(Event->key.keysym.sym){
-          case SDLK_a:
-             aroundZ = (aroundZ + 3) % 360;
-             break;
-          case SDLK_d:
-             aroundZ = (aroundZ - 3) % 360;
-             break;
-          case SDLK_w:
-             aroundX = (aroundX + 3) % 360;
-             break;
-          case SDLK_s:
-             aroundX = (aroundX - 3) % 360;
-             break;
-          case SDLK_z:
-             zoom += 0.1;
-             break;
-          case SDLK_x:
-             zoom -= 0.1;
-             break;
-          case SDLK_c:
-             zoomY += 0.1;
-             break;
-          case SDLK_v:
-             zoomY -= 0.1;
-             break;
-          case SDLK_b:
-             zoomZ += 0.1;
-             break;
-          case SDLK_n:
-             zoomZ -= 0.1;
-             break;
+      switch(Event->key.keysym.sym){
+        case SDLK_a:
+          k_down[0] = false;
+          break;
+        case SDLK_d:
+          k_down[1] = false;
+          break;
+        case SDLK_w:
+          k_down[2] = false;
+          break;
+        case SDLK_s:
+          k_down[3] = false;
+          break;
+        case SDLK_z:
+          k_down[4] = false;
+          break;
+        case SDLK_x:
+          k_down[5] = false;
+          break;
+        case SDLK_c:
+          k_down[6] = false;
+          break;
+        case SDLK_v:
+          k_down[7] = false;
+          break;
+        case SDLK_b:
+          k_down[8] = false;
+          break;
+        case SDLK_n:
+          k_down[9] = false;
+          break;
 
        }
-       //fprintf(stdout, "%f, %f, %f\n", zoom, zoomY, zoomZ);
     }
+    else if(Event->type == SDL_KEYDOWN){
+      switch(Event->key.keysym.sym){
+        case SDLK_a:
+          k_down[0] = true;
+          break;
+        case SDLK_d:
+          k_down[1] = true;
+          break;
+        case SDLK_w:
+          k_down[2] = true;
+          break;
+        case SDLK_s:
+          k_down[3] = true;
+          break;
+        case SDLK_z:
+          k_down[4] = true;
+          break;
+        case SDLK_x:
+          k_down[5] = true;
+          break;
+        case SDLK_c:
+          k_down[6] = true;
+          break;
+        case SDLK_v:
+          k_down[7] = true;
+          break;
+        case SDLK_b:
+          k_down[8] = true;
+          break;
+        case SDLK_n:
+          k_down[9] = true;
+          break;
+
+       }
+    }
+
+
+    //fprintf(stdout, "%f, %f, %f\n", zoom, zoomY, zoomZ);
+}
+
+void App::key_read(){
+    if(k_down[0])
+      aroundZ = (aroundZ + 3) % 360;
+    if(k_down[1])
+      aroundZ = (aroundZ - 3) % 360;
+    if(k_down[2])
+      aroundX = (aroundX + 3) % 360;
+    if(k_down[3])
+      aroundX = (aroundX - 3) % 360;
+    if(k_down[4])
+      zoom += step;
+    if(k_down[5])
+      zoom -= step;
+    if(k_down[6])
+      zoomY += step;
+    if(k_down[7])
+      zoomY -= step;
+    if(k_down[8])
+      zoomZ += step;
+    if(k_down[9])
+      zoomZ -= step;
 }
 
 void App::OnRender() {
+    key_read();
 
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
