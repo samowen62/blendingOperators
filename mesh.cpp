@@ -54,19 +54,38 @@ Mesh::Mesh() {
 }
 
 Mesh::~Mesh(){
-	delete [] & VindexMap;
+	delete [] &VindexMap;
 	delete [] &verticies;
 	delete [] &vecVerts;
+}
+
+float Mesh::hrbfFunct(Vector3f x){
+	float val = 0;
+	Vector3f diff;
+
+	for(int i = 0; i < vecVerts.size(); i++){
+		diff = x - vecVerts[i];
+		float l = diff.norm();
+
+		val += l != 0 ? alpha_beta(i,0) * phi(l) + (dphi(l) / l) * (alpha_beta(i,1) * diff[0] + alpha_beta(i,2) * diff[1] + alpha_beta(i,3) * diff[2]) : 0;
+	}
+
+	return val;
 }
 
 void Mesh::generateVerticies(){
 	int j = 0;
 	int f,fn;
 	int num_verts = V.rows();
+	vecVerts.resize(num_verts);
 
 	for(int i = 0; i < num_verts; i++){
 		vector <int> newColumn;
 		VindexMap.push_back(newColumn);
+
+		Vector3f v;
+		v << V(i,0),V(i,1),V(i,2);
+		vecVerts[i] = v;
 	}
 
 	for (unsigned int i = 0; i < F.rows(); i++) {
@@ -94,6 +113,7 @@ void Mesh::generateVerticies(){
 		j++;
 
 	}
+
 }
 
 void Mesh::generateHrbfCoefs(){
@@ -110,7 +130,7 @@ void Mesh::generateHrbfCoefs(){
 			n_avg[1] += vert.y;
 			n_avg[2] += vert.z;
 		}
-		B(4*i, 0) = 0;
+		B(4*i, 0) = 0.5;
 		B(4*i+1, 0) = size == 0 ? 0 : n_avg[0] / size;
 		B(4*i+2, 0) = size == 0 ? 0 : n_avg[1] / size;
 		B(4*i+3, 0) = size == 0 ? 0 : n_avg[2] / size;
@@ -175,6 +195,9 @@ void Mesh::readHrbf(){
   	int num_verts = V.rows();
 	alpha_beta.resize(num_verts, 4);
 
+	if(num_verts <= 0)
+		return;
+
   	if (in.is_open())
   	{
   		int i = 0;
@@ -196,6 +219,13 @@ void Mesh::readHrbf(){
     }
   	else 
   		fprintf(stderr, "Unable to process hrbf file\n");
+
+  	float sum = 0;
+    for(int i = 0; i < num_verts; i++){
+      sum += hrbfFunct(vecVerts[i]);
+    }
+    avg_iso = sum / num_verts;
+    cout << "average iso value: " << avg_iso << endl;
 }
 
 void Mesh::writeHrbf(){

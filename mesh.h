@@ -37,12 +37,6 @@ class Mesh {
       GLuint  VertexShader;
       GLuint  FragmentShader;
 
-      vector< VBOvertex > verticies;
-      vector< Vector3f > vecVerts;
-      
-      /* this points an index in the above array to actual vertex data in the buffer */
-      vector< vector <int> > VindexMap;
-
       string base;
       int buff_size;
 
@@ -61,6 +55,15 @@ class Mesh {
     public: 
 
         GLuint  ShaderProgram;
+        vector< VBOvertex > verticies;
+        vector< Vector3f > vecVerts;
+        //need vector for storing iso-values of the point
+        
+        /* this points an index in the above array to actual vertex data in the buffer */
+        vector< vector <int> > VindexMap;
+        /* the average iso value of all the verticies */
+        float avg_iso;
+
         Mesh();
         Mesh(const char* shaderFile);
         //make virtual so that other desctructed instances of classes extending
@@ -75,6 +78,7 @@ class Mesh {
         void generateHrbfCoefs();
         void writeHrbf();
         void readHrbf();
+        float hrbfFunct(Vector3f x);
         
 
         float l(Vector3f x, int ind){

@@ -22,7 +22,7 @@ class App {
       const Uint32 minframetime = 1000 / fps;
       const double step = 0.03;
 
-      Mesh* mesh;
+      vector< Mesh* > meshes;
 
       int aroundZ = 0;
       int aroundX = 0;

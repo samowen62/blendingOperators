@@ -127,10 +127,16 @@ bool App::OnInit() {
     glCullFace( GL_BACK );
     glFrontFace( GL_CCW );
 
-    mesh = new Mesh("Shader1");
-    mesh->set(meshFile.c_str());
-    mesh->generateVerticies();
-    mesh->readHrbf();
+    meshes.resize(2);
+    meshes[0] = new Mesh("Shader1");
+    meshes[0]->set(meshFile.c_str());
+    meshes[0]->generateVerticies();
+    meshes[0]->readHrbf();
+
+    meshes[1] = new Mesh("Shader1");
+    meshes[1]->set("fingerMid.obj");
+    meshes[1]->generateVerticies();
+    meshes[1]->readHrbf();
 
     float ratio = (float) w / (float) h;
 
@@ -277,7 +283,8 @@ void App::OnRender() {
     glRotatef(aroundX, 0.f, 1.f, 0.f);
 
     //tipMesh->draw(proj, model);
-    mesh->draw();
+    for(auto it = meshes.begin(); it != meshes.end(); ++it)
+      (*it)->draw();
 
     SDL_RenderPresent(ren);
     SDL_GL_SwapWindow(win);
