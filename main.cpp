@@ -9,24 +9,24 @@ App::App() {
  
 int App::OnExecute() {
 	if(OnInit() == false) {
-        std::cout << "error" << std::endl;
+      std::cout << "error" << std::endl;
     	return -1;
 	}
 
 	SDL_Event Event;
-    Uint32 frametime;
+  Uint32 frametime;
 
 	while(Running) {
-        frametime = SDL_GetTicks ();
+    frametime = SDL_GetTicks ();
 
-    	while(SDL_PollEvent(&Event)) {
-        		OnEvent(&Event);
-    	}
+    while(SDL_PollEvent(&Event)) {
+      OnEvent(&Event);
+    }
 
-        if (SDL_GetTicks () - frametime < minframetime)
-            SDL_Delay (minframetime - (SDL_GetTicks () - frametime));
+    if (SDL_GetTicks () - frametime < minframetime)
+      SDL_Delay (minframetime - (SDL_GetTicks () - frametime));
 
-    	OnRender();
+    OnRender();
 	}
 
 	OnCleanup();
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
     if(mode == "viewer"){
 
       if(argc < 3){
-        fprintf(stderr, "Usage: ./out viewer <file>.obj\n" );
+        fprintf(stderr, "Usage: ./out viewer objs/<file>.obj\n" );
         exit(1);
       }
 
@@ -132,11 +132,13 @@ bool App::OnInit() {
     meshes[0]->set(meshFile.c_str());
     meshes[0]->generateVerticies();
     meshes[0]->readHrbf();
+    meshes[0]->boneCalc();
 
     meshes[1] = new Mesh("Shader1");
-    meshes[1]->set("fingerMid.obj");
+    meshes[1]->set("objs/fingerMid.obj");
     meshes[1]->generateVerticies();
     meshes[1]->readHrbf();
+    meshes[1]->boneCalc();
 
     float ratio = (float) w / (float) h;
 
@@ -230,9 +232,6 @@ void App::OnEvent(SDL_Event* Event) {
 
        }
     }
-
-
-    //fprintf(stdout, "%f, %f, %f\n", zoom, zoomY, zoomZ);
 }
 
 void App::key_read(){
@@ -263,18 +262,6 @@ void App::OnRender() {
 
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-/*  Eigen::Matrix4f proj = Eigen::Matrix4f::Identity();
-    float near = 0.01;
-    float far = 100;
-    float top = tan(35./360.*M_PI)*near;
-    float right = top * w/h;
-    igl::frustum(-right,right,-top,top,near,far,proj);
-    Eigen::Affine3f model = Eigen::Affine3f::Identity();
-    model.translate(Eigen::Vector3f(zoom,zoomY,-5));
-    model.rotate(Eigen::AngleAxisf(aroundX,Eigen::Vector3f(0,1,0)));
-
-*/
-
     glLoadIdentity();
     glTranslatef(0.f,0.f,zoomZ);
     glTranslatef(-zoom,0.f,0.f);
@@ -282,7 +269,6 @@ void App::OnRender() {
     glRotatef(aroundZ, 0.f, 0.f, 1.f);
     glRotatef(aroundX, 0.f, 1.f, 0.f);
 
-    //tipMesh->draw(proj, model);
     for(auto it = meshes.begin(); it != meshes.end(); ++it)
       (*it)->draw();
 

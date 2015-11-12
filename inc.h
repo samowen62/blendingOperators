@@ -8,9 +8,9 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_surface.h> 
 #include <Eigen/Dense>
-#include <igl/frustum.h>
-//#include <igl/read_triangle_mesh.h>
 #include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <igl/frustum.h>
 #include <igl/readOBJ.h>
 #include <iostream>
 

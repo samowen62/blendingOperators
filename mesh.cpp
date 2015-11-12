@@ -37,6 +37,10 @@ void printShaderInfoLog(GLint shader)
 }
 
 Mesh::Mesh(const char* shaderFile){
+	for (int i=0; i<360; i++) {
+        precomputed_sin[i] = sin(i*2*M_PI/360);
+    }
+
 	string file, vert, frag;
 	file.append(shaderFile);
 	vert = "shaders/" + file + ".vert";
@@ -50,7 +54,9 @@ Mesh::Mesh(const char* shaderFile){
 };
 
 Mesh::Mesh() {
-	
+	for (int i=0; i<360; i++) {
+        precomputed_sin[i] = sin(i*2*M_PI/360);
+    }
 }
 
 Mesh::~Mesh(){
@@ -185,10 +191,11 @@ void Mesh::generateHrbfCoefs(){
 }
 
 //call this function after we have V,N and F
+//also read in .cen files
 void Mesh::readHrbf(){
 	string line;
 	string file;
-	file = base + ".hrbf";
+	file = "objs/" + base + ".hrbf";
   	ifstream in (file);
   	vector <string> sp_line;
 
@@ -226,12 +233,43 @@ void Mesh::readHrbf(){
     }
     avg_iso = sum / num_verts;
     cout << "average iso value: " << avg_iso << endl;
+
+
+    file = "objs/" + base + ".cen";
+    ifstream inCen (file);
+  	
+  	if (inCen.is_open())
+  	{
+    	getline (inCen,line);
+		sp_line = split(line, ' ');
+		origin << stod(sp_line[0]) , stod(sp_line[1]) , stod(sp_line[2]);
+
+		getline (inCen,line);
+		sp_line = split(line, ' ');
+		Vector3f top, diff;
+		top << stod(sp_line[0]) , stod(sp_line[1]) , stod(sp_line[2]);
+		up = top - origin;
+
+		//pick any random vector to try this with
+		diff = origin - vecVerts[0];
+		//just in case, this won't happen twice guaranteed by constructing the origin
+		if(diff.norm() == 0)
+			diff = origin - vecVerts[1];
+
+		x_axis = up.cross(diff);
+		x_axis.normalize();
+		up.normalize();
+
+    	inCen.close();
+    }
+  	else 
+  		fprintf(stderr, "Unable to process cen file\n");
 }
 
 void Mesh::writeHrbf(){
 	ofstream out;
 	string file;
-	file = base + ".hrbf";
+	file = "objs/" + base + ".hrbf";
 	out.open(file);
 	int num_verts = V.rows();
 
@@ -245,25 +283,46 @@ void Mesh::writeHrbf(){
 	out.close();
 }
 
+/* 
+ * calculate each vertex in cylindrical (bone) coordinates at origin 
+ * with up=z and x_axis=x
+ */ 
+void Mesh::boneCalc(){
+	Vector3f rel_vec;
+	//just make this a global already
+	int num_verts = V.rows();
+	boneCoords.resize(num_verts);
+
+	for(int i = 0; i < V.rows(); i++){
+		Vector3f bone_c;
+		double len, z, r, theta;
+
+		rel_vec = vecVerts[i] - origin;
+		len = rel_vec.norm();
+		z = rel_vec.dot(up);
+		r = sqrt(len*len - z*z);
+		rel_vec -= z * up;
+		rel_vec.normalize();
+		theta = fmod(rel_vec.dot(x_axis), 2*M_PI);
+
+		bone_c << r, theta, z;
+		boneCoords[i] = bone_c;
+	}
+}
+
 void Mesh::set(const char* fileName){
 	string b;
 	b.append(fileName);
 	vector< string > sp_string = split(b, '.');
-	base = sp_string[0];
+	b = sp_string[0];
+	vector< string > sp_base = split(b, '/');
+	base = sp_base[sp_base.size() - 1]; 
 
 	int i;
 	igl::readOBJ(fileName,V,TC,N,F,FTC,FN);
 
     buff_size = F.rows() * 3;
     verticies.resize(buff_size);    
-		    
-  	//V.rowwise() -= V.colwise().mean();
-  	//V /= (V.colwise().maxCoeff()-V.colwise().minCoeff()).maxCoeff();
-
-    /*cout << "V size: " << V.rows() << "x" << V.cols() << endl;
-    cout << "N size: " << N.rows() << "x" << N.cols() << endl;
-    cout << "F size: " << F.rows() << "x" << F.cols() << endl;
-    cout << "FN size: " << FN.rows() << "x" << FN.cols() << endl;*/
 
 }
         

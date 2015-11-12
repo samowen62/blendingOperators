@@ -6,6 +6,8 @@
 #include <fstream>
 #include <string.h>
 
+#define M_PI           3.14159265358979323846  /* pi */
+
 using namespace std;
 using namespace Eigen;
 
@@ -24,7 +26,6 @@ inline vector<string> &split(const string &s, char delim, vector<string> &elems)
     return elems;
 }
 
-
 inline vector<string> split(const string &s, char delim) {
     vector<string> elems;
     split(s, delim, elems);
@@ -39,6 +40,7 @@ class Mesh {
 
       string base;
       int buff_size;
+      double precomputed_sin[360];
 
       MatrixXd V;
       MatrixXd TC; //don't need for anything
@@ -57,18 +59,22 @@ class Mesh {
         GLuint  ShaderProgram;
         vector< VBOvertex > verticies;
         vector< Vector3f > vecVerts;
+        vector< Vector3f > boneCoords;
         //need vector for storing iso-values of the point
         
         /* this points an index in the above array to actual vertex data in the buffer */
         vector< vector <int> > VindexMap;
-        /* the average iso value of all the verticies */
+
+        /* the average hrbf iso value of all the verticies */
         float avg_iso;
+
+        /* the center and orientation of the bone's cylindrical coordinate system */
+        Vector3f origin;
+        Vector3f up;
+        Vector3f x_axis;
 
         Mesh();
         Mesh(const char* shaderFile);
-        //make virtual so that other desctructed instances of classes extending
-        //this one called as a Mesh get both destructors
-        //in java only final methods are not virtual
         virtual ~Mesh(void);
         
         void draw();
@@ -78,6 +84,7 @@ class Mesh {
         void generateHrbfCoefs();
         void writeHrbf();
         void readHrbf();
+        void boneCalc();
         float hrbfFunct(Vector3f x);
         
 
@@ -111,10 +118,10 @@ class Mesh {
         void save_Vdata(int f,int j){
           VindexMap[f].push_back(j);
         }
+
+        double tsin(int x) { return precomputed_sin[x & 360]; }
+        double tcos(int x) { return precomputed_sin[(x + 90) & 360]; }
+
 };
 
-
-
 #endif
-
-
