@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
       return theApp.OnExecute();
     }else if(mode == "hrbf"){
       if(argc < 3){
-        fprintf(stderr, "Usage: ./out hrbf <file>.obj\n" );
+        fprintf(stderr, "Usage: ./out hrbf objs/<file>.obj\n" );
         exit(1);
       }
 
@@ -129,16 +129,15 @@ bool App::OnInit() {
 
     meshes.resize(2);
     meshes[0] = new Mesh("Shader1");
-    meshes[0]->set(meshFile.c_str());
-    meshes[0]->generateVerticies();
-    meshes[0]->readHrbf();
-    meshes[0]->boneCalc();
+    meshes[0]->setView(meshFile.c_str());
+    Matrix3f rotation;
+    rotation << 0, 1, 0,
+                -1, 0, 0,
+                0, 0, 1;
+    meshes[0]->transform(rotation);
 
     meshes[1] = new Mesh("Shader1");
-    meshes[1]->set("objs/fingerMid.obj");
-    meshes[1]->generateVerticies();
-    meshes[1]->readHrbf();
-    meshes[1]->boneCalc();
+    meshes[1]->setView("objs/fingerMid.obj");
 
     float ratio = (float) w / (float) h;
 

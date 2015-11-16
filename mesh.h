@@ -59,6 +59,7 @@ class Mesh {
         GLuint  ShaderProgram;
         vector< VBOvertex > verticies;
         vector< Vector3f > vecVerts;
+        vector< Vector3f > vecNorms;
         vector< Vector3f > boneCoords;
         //need vector for storing iso-values of the point
         
@@ -70,8 +71,9 @@ class Mesh {
 
         /* the center and orientation of the bone's cylindrical coordinate system */
         Vector3f origin;
-        Vector3f up;
         Vector3f x_axis;
+        Vector3f y_axis;
+        Vector3f z_axis;
 
         Mesh();
         Mesh(const char* shaderFile);
@@ -80,11 +82,13 @@ class Mesh {
         void draw();
         int  loadShader(const char* vertexFileName, const char* fragmentFileName);
         void set(const char* fileName);
+        void setView(const char* fileName);
         void generateVerticies();
         void generateHrbfCoefs();
         void writeHrbf();
         void readHrbf();
         void boneCalc();
+        void transform(Matrix3f rot);
         float hrbfFunct(Vector3f x);
         
 

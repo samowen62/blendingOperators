@@ -63,6 +63,7 @@ Mesh::~Mesh(){
 	delete [] &VindexMap;
 	delete [] &verticies;
 	delete [] &vecVerts;
+	delete [] &vecNorms;
 }
 
 float Mesh::hrbfFunct(Vector3f x){
@@ -84,6 +85,7 @@ void Mesh::generateVerticies(){
 	int f,fn;
 	int num_verts = V.rows();
 	vecVerts.resize(num_verts);
+	vecNorms.resize(num_verts);
 
 	for(int i = 0; i < num_verts; i++){
 		vector <int> newColumn;
@@ -120,6 +122,21 @@ void Mesh::generateVerticies(){
 
 	}
 
+	for(unsigned int i = 0; i < num_verts; i++){
+		vector < float > n_avg = {0, 0, 0};
+		int size = VindexMap[i].size();
+		for(int j = 0; j < size; j++) {
+			VBOvertex vert = verticies[VindexMap[i][j]];
+			n_avg[0] += vert.nx;
+			n_avg[1] += vert.ny;
+			n_avg[2] += vert.nz;
+		}
+
+		Vector3f n;
+		n << (size == 0 ? 0 : n_avg[0] / size), (size == 0 ? 0 : n_avg[1] / size), (size == 0 ? 0 : n_avg[2] / size);
+		vecNorms[i] = n;
+	}
+
 }
 
 void Mesh::generateHrbfCoefs(){
@@ -132,9 +149,9 @@ void Mesh::generateHrbfCoefs(){
 		int size = VindexMap[i].size();
 		for(int j = 0; j < size; j++) {
 			VBOvertex vert = verticies[VindexMap[i][j]];
-			n_avg[0] += vert.x;
-			n_avg[1] += vert.y;
-			n_avg[2] += vert.z;
+			n_avg[0] += vert.nx;
+			n_avg[1] += vert.ny;
+			n_avg[2] += vert.nz;
 		}
 		B(4*i, 0) = 0.5;
 		B(4*i+1, 0) = size == 0 ? 0 : n_avg[0] / size;
@@ -201,6 +218,7 @@ void Mesh::readHrbf(){
 
   	int num_verts = V.rows();
 	alpha_beta.resize(num_verts, 4);
+	boneCoords.resize(num_verts);
 
 	if(num_verts <= 0)
 		return;
@@ -248,7 +266,7 @@ void Mesh::readHrbf(){
 		sp_line = split(line, ' ');
 		Vector3f top, diff;
 		top << stod(sp_line[0]) , stod(sp_line[1]) , stod(sp_line[2]);
-		up = top - origin;
+		z_axis = top - origin;
 
 		//pick any random vector to try this with
 		diff = origin - vecVerts[0];
@@ -256,9 +274,10 @@ void Mesh::readHrbf(){
 		if(diff.norm() == 0)
 			diff = origin - vecVerts[1];
 
-		x_axis = up.cross(diff);
+		x_axis = diff.cross(z_axis);
 		x_axis.normalize();
-		up.normalize();
+		z_axis.normalize();
+		y_axis = z_axis.cross(x_axis);
 
     	inCen.close();
     }
@@ -283,31 +302,68 @@ void Mesh::writeHrbf(){
 	out.close();
 }
 
+/*
+ *	rot is a rotation matrix rotating the x,y and z axis 
+ * 	about the origin of this bone (a joint)
+ */
+void Mesh::transform(Matrix3f rot){
+
+	Vector3f 	vec, norm;
+	Vector3f	x_proj = rot * x_axis, 
+				y_proj = rot * y_axis, 
+				z_proj = rot * z_axis;
+	for(int i = 0; i < VindexMap.size(); i++){
+		vec = boneCoords[i];
+		vec = vec(0)*x_proj + vec(1)*y_proj + vec(2)*z_proj + origin;
+		norm = rot * vecNorms[i];
+
+		vector <int> indicies = VindexMap[i];
+
+		for(int j = 0; j < indicies.size(); j ++){
+			verticies[VindexMap[i][j]].x = vec(0); 
+			verticies[VindexMap[i][j]].y = vec(1);
+			verticies[VindexMap[i][j]].z = vec(2);
+
+			verticies[VindexMap[i][j]].nx = norm(0); 
+			verticies[VindexMap[i][j]].ny = norm(1); 
+			verticies[VindexMap[i][j]].nz = norm(2);
+		}
+	}
+
+}
+
 /* 
- * calculate each vertex in cylindrical (bone) coordinates at origin 
+ * calculate each vertex in cartesian (bone) coordinates at origin 
  * with up=z and x_axis=x
  */ 
 void Mesh::boneCalc(){
 	Vector3f rel_vec;
 	//just make this a global already
 	int num_verts = V.rows();
-	boneCoords.resize(num_verts);
+	
 
 	for(int i = 0; i < V.rows(); i++){
 		Vector3f bone_c;
-		double len, z, r, theta;
+		double x, y, z;
 
 		rel_vec = vecVerts[i] - origin;
-		len = rel_vec.norm();
-		z = rel_vec.dot(up);
-		r = sqrt(len*len - z*z);
-		rel_vec -= z * up;
-		rel_vec.normalize();
-		theta = fmod(rel_vec.dot(x_axis), 2*M_PI);
+		x = rel_vec.dot(x_axis);
+		y = rel_vec.dot(y_axis);
+		z = rel_vec.dot(z_axis);
 
-		bone_c << r, theta, z;
+		bone_c << x, y, z;
 		boneCoords[i] = bone_c;
 	}
+}
+
+/*
+ * This function just wraps most of the essential viewing functions for brevity
+ */
+void Mesh::setView(const char* fileName){
+	set(fileName);
+    generateVerticies();
+    readHrbf();
+    boneCalc();
 }
 
 void Mesh::set(const char* fileName){
