@@ -463,17 +463,6 @@ int Mesh::loadShader(const char* vertexFileName, const char* fragmentFileName)
 	glAttachShader(ShaderProgram, VertexShader);
 	glAttachShader(ShaderProgram, FragmentShader);
  
-	glBindAttribLocation(ShaderProgram, 0, "InVertex");
- 
-	//if(bindTexCoord0)
-		glBindAttribLocation(ShaderProgram, 1, "InTexCoord0");
- 
-	//if(bindNormal)
-		glBindAttribLocation(ShaderProgram, 2, "InNormal");
- 
-	//if(bindColor)
-		glBindAttribLocation(ShaderProgram, 3, "InColor");
- 
 	glLinkProgram(ShaderProgram);
  
 	GLint IsLinked;
