@@ -334,7 +334,6 @@ void Mesh::transform(Matrix3f rot){
 
 /* 
  * calculate each vertex in cartesian (bone) coordinates at origin 
- * with up=z and x_axis=x
  */ 
 void Mesh::boneCalc(){
 	Vector3f rel_vec;
