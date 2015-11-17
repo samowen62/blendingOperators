@@ -82,14 +82,19 @@ float Mesh::hrbfFunct(Vector3f x){
 
 void Mesh::generateVerticies(){
 	int j = 0;
-	int f,fn;
-	int num_verts = V.rows();
+	int f1,f2,f3,fn;
+	num_verts = V.rows();
 	vecVerts.resize(num_verts);
 	vecNorms.resize(num_verts);
+	vecIsos.resize(num_verts);
 
 	for(int i = 0; i < num_verts; i++){
 		vector <int> newColumn;
+		vector <int> newInd;
+		vector <double> newBary;
 		VindexMap.push_back(newColumn);
+		edgeMap.push_back(newInd);
+		baryCoords.push_back(newBary);
 
 		Vector3f v;
 		v << V(i,0),V(i,1),V(i,2);
@@ -98,31 +103,36 @@ void Mesh::generateVerticies(){
 
 	for (unsigned int i = 0; i < F.rows(); i++) {
 
-		f = F(i,0);
+		f1 = F(i,0);
 		fn = FN(i,0);
-		save_Vdata(f,j);
-		verticies[j].x = V(f,0); verticies[j].y = V(f,1); verticies[j].z = V(f,2);
+		VindexMap[f1].push_back(j);
+		verticies[j].x = V(f1,0); verticies[j].y = V(f1,1); verticies[j].z = V(f1,2);
 		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
 		j++;
 
 
-		f = F(i,1);
+		f2 = F(i,1);
 		fn = FN(i,0);
-		save_Vdata(f,j);
-		verticies[j].x = V(f,0); verticies[j].y = V(f,1); verticies[j].z = V(f,2);
+		VindexMap[f2].push_back(j);
+		verticies[j].x = V(f2,0); verticies[j].y = V(f2,1); verticies[j].z = V(f2,2);
 		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
 		j++;
 
-		f = F(i,2);
+		f3 = F(i,2);
 		fn = FN(i,0);
-		save_Vdata(f,j);
-		verticies[j].x = V(f,0); verticies[j].y = V(f,1); verticies[j].z = V(f,2);
+		VindexMap[f3].push_back(j);
+		verticies[j].x = V(f3,0); verticies[j].y = V(f3,1); verticies[j].z = V(f3,2);
 		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
 		j++;
+
+		save_face(f1,f2,f3);
+		save_face(f2,f3,f1);
+		save_face(f3,f1,f2);
 
 	}
 
 	for(unsigned int i = 0; i < num_verts; i++){
+		//per vertex normals
 		vector < float > n_avg = {0, 0, 0};
 		int size = VindexMap[i].size();
 		for(int j = 0; j < size; j++) {
@@ -136,6 +146,70 @@ void Mesh::generateVerticies(){
 		n << (size == 0 ? 0 : n_avg[0] / size), (size == 0 ? 0 : n_avg[1] / size), (size == 0 ? 0 : n_avg[2] / size);
 		vecNorms[i] = n;
 	}
+}
+
+/*
+ * This method calulates the barycentric coordinates of each vertex
+ * Two things to keep in mind:
+ *	1)	This is done on a per triangle (not per edge) basis, so the coefficients more accurately
+ *		represent barycentric coordinates with the midpoint of opposite edges as the basis vectors
+ *	2)	This should be called after unions between shapes are done so that contributions from other
+ *		meshes count as well
+ */
+void Mesh::generateBaryCoords(){
+
+	for (int i = 0; i < num_verts; ++i){
+		int sharedInd = -1;
+		Mesh* sharedMesh;
+
+		//tries to find out if this is a shared edge
+		for(int j = 0; j < neighbors.size(); j++){
+			for(int k = 0; k < neighborIndex[j].size(); k+=2){
+				if(i == neighborIndex[j][k]){
+					//sharedInd is now effectively i for the shared mesh
+					sharedInd = neighborIndex[j][k+1];
+					sharedMesh = neighbors[j];
+					break;
+				}
+			}
+			if(sharedInd != -1)
+				break;
+		}
+
+		double area = 0.0;
+		int size = edgeMap[i].size() / 2;
+		for(int j = 0; j < size; j++) {
+			Vector3f v1 = vecVerts[edgeMap[i][2*j]];
+			Vector3f v2 = vecVerts[edgeMap[i][2*j+1]];
+			double triangle = 0.5 * (v1.cross(v2).norm());	
+			baryCoords[i].push_back(triangle);
+			area += triangle;
+		}
+
+		//this is shown to contribute. We assume it is accurate
+		if(sharedInd != -1){
+			int size = sharedMesh->edgeMap[sharedInd].size() / 2;
+			for(int j = 0; j < size; j++) {
+				Vector3f v1 = sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*j]];
+				Vector3f v2 = sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*j+1]];
+				double triangle = 0.5 * (v1.cross(v2).norm());	
+
+				//this vector now is not half the size of the corresponding edge index vector
+				baryCoords[i].push_back(triangle);
+				area += triangle;
+			}
+		}
+
+		for(int j = 0; j < size; j++)
+			baryCoords[i][j] = baryCoords[i][j] / area;
+	}
+
+	/*for(int i = 0; i < num_verts; i++){
+		cout << i << ": ";
+		for(int j = 0; j < baryCoords[i].size(); j++)
+			cout << baryCoords[i][j] << ' ';
+		cout << endl;
+	}*/
 
 }
 
@@ -216,7 +290,6 @@ void Mesh::readHrbf(){
   	ifstream in (file);
   	vector <string> sp_line;
 
-  	int num_verts = V.rows();
 	alpha_beta.resize(num_verts, 4);
 	boneCoords.resize(num_verts);
 
@@ -247,7 +320,8 @@ void Mesh::readHrbf(){
 
   	float sum = 0;
     for(int i = 0; i < num_verts; i++){
-      sum += hrbfFunct(vecVerts[i]);
+      	vecIsos[i] = hrbfFunct(vecVerts[i]);
+    	sum += vecIsos[i];
     }
     avg_iso = sum / num_verts;
     cout << "average iso value: " << avg_iso << endl;
@@ -305,6 +379,8 @@ void Mesh::writeHrbf(){
 /*
  *	rot is a rotation matrix rotating the x,y and z axis 
  * 	about the origin of this bone (a joint)
+ *
+ *	updates normals and verticies as well
  */
 void Mesh::transform(Matrix3f rot){
 
@@ -317,6 +393,8 @@ void Mesh::transform(Matrix3f rot){
 		vec = vec(0)*x_proj + vec(1)*y_proj + vec(2)*z_proj + origin;
 		norm = rot * vecNorms[i];
 
+		vecVerts[i] = vec;
+		vecNorms[i] = norm;
 		vector <int> indicies = VindexMap[i];
 
 		for(int j = 0; j < indicies.size(); j ++){
@@ -337,9 +415,6 @@ void Mesh::transform(Matrix3f rot){
  */ 
 void Mesh::boneCalc(){
 	Vector3f rel_vec;
-	//just make this a global already
-	int num_verts = V.rows();
-	
 
 	for(int i = 0; i < V.rows(); i++){
 		Vector3f bone_c;
@@ -395,6 +470,43 @@ void Mesh::draw(){
 	glUseProgram(0);
 	glPopMatrix();
 
+}
+
+void Mesh::createUnion(Mesh* m1, Mesh* m2){
+	vector< int > newNeigbor1;
+	vector< int > newNeigbor2;
+
+	m1->neighbors.push_back(m2);
+	m2->neighbors.push_back(m1);
+	m1->neighborIndex.push_back(newNeigbor1);
+	m2->neighborIndex.push_back(newNeigbor2);
+
+	int m1size = m1->neighborIndex.size() - 1;
+	int m2size = m2->neighborIndex.size() - 1;
+	
+	for(int i = 0; i < m1->num_verts; i++){
+		float minDist = 20;
+		int minInd = -1;
+
+		for(int j = 0; j < m2->num_verts; j++){
+			float dist = (m1->vecVerts[i] - m2->vecVerts[j]).norm();
+
+			if(dist < minDist){
+				minDist = dist;
+				minInd = j;
+			}
+		}	
+
+		if(minDist < EDGE_ERROR){
+			//i is the index in m1 and minInd in m2
+			m1->neighborIndex[m1size].push_back(i);
+			m1->neighborIndex[m1size].push_back(minInd);
+			m2->neighborIndex[m1size].push_back(minInd);
+			m2->neighborIndex[m1size].push_back(i);
+			//seems to work fine
+			//cout << "connecting " << i << ' ' << minInd << endl;
+		}
+	}
 }
 
 int Mesh::loadShader(const char* vertexFileName, const char* fragmentFileName)

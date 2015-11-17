@@ -130,14 +130,19 @@ bool App::OnInit() {
     meshes.resize(2);
     meshes[0] = new Mesh("Shader1");
     meshes[0]->setView(meshFile.c_str());
+    meshes[1] = new Mesh("Shader1");
+    meshes[1]->setView("objs/fingerMid.obj");
+
+    //put this before any rotation since the verticies and normals change
+    Mesh::createUnion(meshes[0], meshes[1]);
+
+    meshes[0]->generateBaryCoords();
+
     Matrix3f rotation;
     rotation << 0, 1, 0,
                 -1, 0, 0,
                 0, 0, 1;
     meshes[0]->transform(rotation);
-
-    meshes[1] = new Mesh("Shader1");
-    meshes[1]->setView("objs/fingerMid.obj");
 
     float ratio = (float) w / (float) h;
 
