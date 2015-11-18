@@ -66,13 +66,13 @@ Mesh::~Mesh(){
 	delete [] &vecNorms;
 }
 
-float Mesh::hrbfFunct(Vector3f x){
-	float val = 0;
-	Vector3f diff;
+double Mesh::hrbfFunct(Vector3d x){
+	double val = 0;
+	Vector3d diff;
 
 	for(int i = 0; i < vecVerts.size(); i++){
 		diff = x - vecVerts[i];
-		float l = diff.norm();
+		double l = diff.norm();
 
 		val += l != 0 ? alpha_beta(i,0) * phi(l) + (dphi(l) / l) * (alpha_beta(i,1) * diff[0] + alpha_beta(i,2) * diff[1] + alpha_beta(i,3) * diff[2]) : 0;
 	}
@@ -96,7 +96,7 @@ void Mesh::generateVerticies(){
 		edgeMap.push_back(newInd);
 		baryCoords.push_back(newBary);
 
-		Vector3f v;
+		Vector3d v;
 		v << V(i,0),V(i,1),V(i,2);
 		vecVerts[i] = v;
 	}
@@ -133,7 +133,7 @@ void Mesh::generateVerticies(){
 
 	for(unsigned int i = 0; i < num_verts; i++){
 		//per vertex normals
-		vector < float > n_avg = {0, 0, 0};
+		vector < double > n_avg = {0, 0, 0};
 		int size = VindexMap[i].size();
 		for(int j = 0; j < size; j++) {
 			VBOvertex vert = verticies[VindexMap[i][j]];
@@ -142,7 +142,7 @@ void Mesh::generateVerticies(){
 			n_avg[2] += vert.nz;
 		}
 
-		Vector3f n;
+		Vector3d n;
 		n << (size == 0 ? 0 : n_avg[0] / size), (size == 0 ? 0 : n_avg[1] / size), (size == 0 ? 0 : n_avg[2] / size);
 		vecNorms[i] = n;
 	}
@@ -169,18 +169,18 @@ void Mesh::generateBaryCoords(){
 					//sharedInd is now effectively i for the shared mesh
 					sharedInd = neighborIndex[j][k+1];
 					sharedMesh = neighbors[j];
-					break;
+					goto break_bary;
 				}
 			}
-			if(sharedInd != -1)
-				break;
 		}
+
+		break_bary:
 
 		double area = 0.0;
 		int size = edgeMap[i].size() / 2;
 		for(int j = 0; j < size; j++) {
-			Vector3f v1 = vecVerts[edgeMap[i][2*j]];
-			Vector3f v2 = vecVerts[edgeMap[i][2*j+1]];
+			Vector3d v1 = vecVerts[edgeMap[i][2*j]];
+			Vector3d v2 = vecVerts[edgeMap[i][2*j+1]];
 			double triangle = 0.5 * (v1.cross(v2).norm());	
 			baryCoords[i].push_back(triangle);
 			area += triangle;
@@ -190,8 +190,8 @@ void Mesh::generateBaryCoords(){
 		if(sharedInd != -1){
 			int size = sharedMesh->edgeMap[sharedInd].size() / 2;
 			for(int j = 0; j < size; j++) {
-				Vector3f v1 = sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*j]];
-				Vector3f v2 = sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*j+1]];
+				Vector3d v1 = sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*j]];
+				Vector3d v2 = sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*j+1]];
 				double triangle = 0.5 * (v1.cross(v2).norm());	
 
 				//this vector now is not half the size of the corresponding edge index vector
@@ -219,7 +219,7 @@ void Mesh::generateHrbfCoefs(){
 	vecVerts.resize(num_verts);
 
 	for(unsigned int i = 0; i < num_verts; i++){
-		vector < float > n_avg = {0, 0, 0};
+		vector < double > n_avg = {0, 0, 0};
 		int size = VindexMap[i].size();
 		for(int j = 0; j < size; j++) {
 			VBOvertex vert = verticies[VindexMap[i][j]];
@@ -232,7 +232,7 @@ void Mesh::generateHrbfCoefs(){
 		B(4*i+2, 0) = size == 0 ? 0 : n_avg[1] / size;
 		B(4*i+3, 0) = size == 0 ? 0 : n_avg[2] / size;
 
-		Vector3f v1;
+		Vector3d v1;
 		v1 << V(i,0), V(i,1), V(i,2);
 		vecVerts[i] = v1;
 	}
@@ -240,9 +240,9 @@ void Mesh::generateHrbfCoefs(){
 
 	A.resize(num_verts * 4,num_verts * 4); //the 4 is because of the scalar and vector component we are solving for
 	int x_o, y_o;
-	float a1, a2, a3, _c, d1, d2, d3;
-	Vector3f x;
-	Vector3f _d;
+	double a1, a2, a3, _c, d1, d2, d3;
+	Vector3d x;
+	Vector3d _d;
 
 	for(int i = 0; i < num_verts; i++){
 		for(int j = 0; j < num_verts; j++){
@@ -250,7 +250,7 @@ void Mesh::generateHrbfCoefs(){
 			x_o = i*4;
 			y_o = j*4;
 			x = vecVerts[j];
-			float grad = b(x, i);
+			double grad = b(x, i);
 			a1 = grad * (x(0) - vecVerts[i](0));
 			a2 = grad * (x(1) - vecVerts[i](1));
 			a3 = grad * (x(2) - vecVerts[i](2));
@@ -318,7 +318,7 @@ void Mesh::readHrbf(){
   	else 
   		fprintf(stderr, "Unable to process hrbf file\n");
 
-  	float sum = 0;
+  	double sum = 0;
     for(int i = 0; i < num_verts; i++){
       	vecIsos[i] = hrbfFunct(vecVerts[i]);
     	sum += vecIsos[i];
@@ -338,7 +338,7 @@ void Mesh::readHrbf(){
 
 		getline (inCen,line);
 		sp_line = split(line, ' ');
-		Vector3f top, diff;
+		Vector3d top, diff;
 		top << stod(sp_line[0]) , stod(sp_line[1]) , stod(sp_line[2]);
 		z_axis = top - origin;
 
@@ -382,10 +382,10 @@ void Mesh::writeHrbf(){
  *
  *	updates normals and verticies as well
  */
-void Mesh::transform(Matrix3f rot){
+void Mesh::transform(Matrix3d rot){
 
-	Vector3f 	vec, norm;
-	Vector3f	x_proj = rot * x_axis, 
+	Vector3d 	vec, norm;
+	Vector3d	x_proj = rot * x_axis, 
 				y_proj = rot * y_axis, 
 				z_proj = rot * z_axis;
 	for(int i = 0; i < VindexMap.size(); i++){
@@ -414,10 +414,10 @@ void Mesh::transform(Matrix3f rot){
  * calculate each vertex in cartesian (bone) coordinates at origin 
  */ 
 void Mesh::boneCalc(){
-	Vector3f rel_vec;
+	Vector3d rel_vec;
 
 	for(int i = 0; i < V.rows(); i++){
-		Vector3f bone_c;
+		Vector3d bone_c;
 		double x, y, z;
 
 		rel_vec = vecVerts[i] - origin;
@@ -460,10 +460,10 @@ void Mesh::draw(){
 	glPushMatrix();
 	glUseProgram(ShaderProgram);
 	glBegin(GL_TRIANGLES);
-	glColor3f(0.f,0.f,0.f);
+	glColor3d(0.f,0.f,0.f);
 	for(auto & v : verticies) {
-		glNormal3f(v.nx,v.ny,v.nz);
-	    glVertex3f(v.x, v.y, v.z);
+		glNormal3d(v.nx,v.ny,v.nz);
+	    glVertex3d(v.x, v.y, v.z);
 	}
 
 	glEnd();
@@ -485,11 +485,11 @@ void Mesh::createUnion(Mesh* m1, Mesh* m2){
 	int m2size = m2->neighborIndex.size() - 1;
 	
 	for(int i = 0; i < m1->num_verts; i++){
-		float minDist = 20;
+		double minDist = 20;
 		int minInd = -1;
 
 		for(int j = 0; j < m2->num_verts; j++){
-			float dist = (m1->vecVerts[i] - m2->vecVerts[j]).norm();
+			double dist = (m1->vecVerts[i] - m2->vecVerts[j]).norm();
 
 			if(dist < minDist){
 				minDist = dist;

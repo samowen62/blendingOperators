@@ -14,8 +14,8 @@ using namespace Eigen;
 
 struct VBOvertex
 {
-  float x, y, z;        // Vertex
-  float nx, ny, nz;     // Normal
+  double x, y, z;        // Vertex
+  double nx, ny, nz;     // Normal
 };
 
 inline vector<string> &split(const string &s, char delim, vector<string> &elems) {
@@ -60,10 +60,10 @@ class Mesh {
     public:  
         int num_verts;
 
-        vector< Vector3f > vecVerts;
-        vector< Vector3f > vecNorms;
-        vector< Vector3f > boneCoords;
-        vector< float > vecIsos;
+        vector< Vector3d > vecVerts;
+        vector< Vector3d > vecNorms;
+        vector< Vector3d > boneCoords;
+        vector< double > vecIsos;
         
         
         /* This maps indicies in vecVerts/vecNorms/boneCoords to verticies in the VBO buffer */
@@ -76,13 +76,13 @@ class Mesh {
         vector< vector <double> > baryCoords;
 
         /* the average hrbf iso value of all the verticies */
-        float avg_iso;
+        double avg_iso;
 
         /* the center and orientation of the bone's cylindrical coordinate system */
-        Vector3f origin;
-        Vector3f x_axis;
-        Vector3f y_axis;
-        Vector3f z_axis;
+        Vector3d origin;
+        Vector3d x_axis;
+        Vector3d y_axis;
+        Vector3d z_axis;
 
         Mesh();
         Mesh(const char* shaderFile);
@@ -98,8 +98,8 @@ class Mesh {
         void writeHrbf();
         void readHrbf();
         void boneCalc();
-        void transform(Matrix3f rot);
-        float hrbfFunct(Vector3f x);
+        void transform(Matrix3d rot);
+        double hrbfFunct(Vector3d x);
         
 
         vector< Mesh* > neighbors;
@@ -107,28 +107,28 @@ class Mesh {
         /* determines which verticies correspond and finds the tangents to them as well */
         static void createUnion(Mesh* m1, Mesh* m2);
 
-        float l(Vector3f x, int ind){
+        double l(Vector3d x, int ind){
           return (x - vecVerts[ind]).norm();
         }
 
-        float phi(float t){
+        double phi(double t){
           return t*t*t;
         }
 
-        float dphi(float t){
+        double dphi(double t){
           return 3*t*t;
         }
 
-        float ddphi(float t){
+        double ddphi(double t){
           return 6*t;
         }
 
-        float b(Vector3f x, int ind){
+        double b(Vector3d x, int ind){
           return dphi(l(x, ind));
         }
 
-        float c(Vector3f x, int ind){
-          float dist = l(x,ind);
+        double c(Vector3d x, int ind){
+          double dist = l(x,ind);
           if (dist == 0)
             return 0;
           return ( (1/(dist*dist)) * (ddphi(dist) - (dphi(dist)/dist)) );

@@ -138,7 +138,7 @@ bool App::OnInit() {
 
     meshes[0]->generateBaryCoords();
 
-    Matrix3f rotation;
+    Matrix3d rotation;
     rotation << 0, 1, 0,
                 -1, 0, 0,
                 0, 0, 1;
