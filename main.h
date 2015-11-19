@@ -7,6 +7,7 @@
 //viewer requires nanovg
 //#include <igl/viewer/Viewer.h>
 
+#define M_PI  3.14159265358979323846  /* pi */
 
 class App {
     private:
@@ -32,6 +33,10 @@ class App {
       int w=800,h=600;
 
       vector<bool> k_down = {0,0,0,0,0,0,0,0,0,0};
+
+      Eigen::Matrix3d forwardRot;
+      Eigen::Matrix3d backRot;
+
 
     public: 
         App();

@@ -98,6 +98,8 @@ class Mesh {
         void writeHrbf();
         void readHrbf();
         void boneCalc();
+        void tangentalRelax();
+        void regenVerts();
         void transform(Matrix3d rot);
         double hrbfFunct(Vector3d x);
         

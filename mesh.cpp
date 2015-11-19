@@ -213,6 +213,95 @@ void Mesh::generateBaryCoords(){
 
 }
 
+void Mesh::tangentalRelax(){
+	int sharedInd = -1, index, edgeSize;
+	double mu;
+	Mesh* sharedMesh;
+	Vector3d sum;
+
+	//repeat the below process a few times (3)?
+
+	//should look at edges here and gloss over them in the next traversal 
+	for(int i = 0; i < neighbors.size(); i++){
+		sharedMesh = neighbors[i];
+
+		for(int j = 0; j < neighborIndex[i].size(); j+=2){
+			index = neighborIndex[i][j];
+			sharedInd = neighborIndex[i][j+1];
+			
+			mu = max(
+				max(
+					0.0, 
+					1.0 - pow(abs(hrbfFunct(vecVerts[index]) - vecIsos[index]) - 1, 4)
+				), 
+				1.0 - pow(abs(hrbfFunct(sharedMesh->vecVerts[sharedInd]) - sharedMesh->vecIsos[sharedInd]) - 1, 4)
+			);
+
+			sum = (1 - mu)*vecVerts[index];
+
+			edgeSize = edgeMap[index].size() / 2;
+			for(int k = 0; k < edgeSize; k++ ){
+				Vector3d mid = 0.5 * (vecVerts[edgeMap[index][2*k]] + vecVerts[edgeMap[index][2*k+1]]);
+				sum += mu*baryCoords[index][k]*mid;
+			}
+
+			//this made diff smaller cuz didn't account for all the points yet
+			edgeSize = sharedMesh->edgeMap[sharedInd].size() / 2;
+			for(int k = 0; k < edgeSize; k++ ){
+				Vector3d mid = 0.5 * (sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*k]] + sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*k+1]]);
+				sum += mu*sharedMesh->baryCoords[sharedInd][k]*mid;
+			}
+
+			//cout << "diff: " << (sum - vecVerts[index]).norm() << endl;
+			vecVerts[index] = sum;
+			sharedMesh->vecVerts[sharedInd] = sum;
+		}
+		sharedMesh->regenVerts();
+	}
+
+	//normal points
+	for(int i = 0; i < num_verts; i++){
+		//this just makes sure we gloss over the points above
+		for(int j = 0; j < neighbors.size(); j++)
+			for(int k = 0; k < neighborIndex[j].size(); k+=2)
+				if(i == neighborIndex[j][k])
+					goto skip;
+
+		mu = max(0.0, 1.0 - pow(abs(hrbfFunct(vecVerts[i]) - vecIsos[i]) - 1, 4));
+
+		sum = (1 - mu)*vecVerts[i];
+
+		edgeSize = edgeMap[i].size() / 2;
+		for(int j = 0; j < edgeSize; j++ ){
+			Vector3d mid = 0.5 * (vecVerts[edgeMap[i][2*j]] + vecVerts[edgeMap[i][2*j+1]]);
+			sum += mu*baryCoords[i][j]*mid;
+		}
+
+		//cout << "diff: " << (sum - vecVerts[i]).norm() << endl;
+		vecVerts[i] = sum;
+
+		skip:
+
+		;		
+	}
+
+	regenVerts();
+
+}
+
+/* this method just transfers points from vecVerts to the buffer */
+void Mesh::regenVerts(){
+	for(int i = 0; i < VindexMap.size(); i++){
+		vector <int> indicies = VindexMap[i];
+
+		for(int j = 0; j < indicies.size(); j ++){
+			verticies[VindexMap[i][j]].x = vecVerts[i](0); 
+			verticies[VindexMap[i][j]].y = vecVerts[i](1);
+			verticies[VindexMap[i][j]].z = vecVerts[i](2);
+		}
+	}
+}
+
 void Mesh::generateHrbfCoefs(){
 	int num_verts = V.rows();
 	B.resize(num_verts * 4, 1);

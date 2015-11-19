@@ -13,5 +13,6 @@
 #include <igl/frustum.h>
 #include <igl/readOBJ.h>
 #include <iostream>
+#include <math.h>
 
 #endif

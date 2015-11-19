@@ -94,10 +94,8 @@ bool App::OnInit() {
  
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
- 
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
  
@@ -105,8 +103,7 @@ bool App::OnInit() {
     SDL_CreateWindowAndRenderer(800, 600, SDL_WINDOW_OPENGL, &win, &ren);
     SDL_GL_CreateContext(win);
     SDL_GetRendererInfo(ren, &renderInfo);
-    if ((renderInfo.flags & SDL_RENDERER_ACCELERATED) == 0 || 
-        (renderInfo.flags & SDL_RENDERER_TARGETTEXTURE) == 0) {
+    if ((renderInfo.flags & SDL_RENDERER_ACCELERATED) == 0 ||  (renderInfo.flags & SDL_RENDERER_TARGETTEXTURE) == 0) {
     }
  
     SDL_GL_SetSwapInterval(1);
@@ -115,9 +112,7 @@ bool App::OnInit() {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glClearDepth( 1.0f );
-    glHint( GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST );
-
-    
+    glHint( GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST );  
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
     GLfloat lmodel_ambient[] = { 0.0, 0.0, 0.0, 0.0 };
@@ -127,27 +122,41 @@ bool App::OnInit() {
     glCullFace( GL_BACK );
     glFrontFace( GL_CCW );
 
+
     meshes.resize(2);
-    meshes[0] = new Mesh("Shader1");
+    meshes[0] = new Mesh("fingerTip");
     meshes[0]->setView(meshFile.c_str());
-    meshes[1] = new Mesh("Shader1");
+    meshes[1] = new Mesh("fingerMid");
     meshes[1]->setView("objs/fingerMid.obj");
 
     //put this before any rotation since the verticies and normals change
     Mesh::createUnion(meshes[0], meshes[1]);
 
+    //keep this after all createUnions
     meshes[0]->generateBaryCoords();
+    meshes[1]->generateBaryCoords();
 
     Matrix3d rotation;
     rotation << 0, 1, 0,
                 -1, 0, 0,
                 0, 0, 1;
     meshes[0]->transform(rotation);
+    meshes[0]->tangentalRelax();
+
+    /*
+      float c = cos(M_PI * 0.1);
+    float s = sin(M_PI * 0.1);
+    forwardRot << c, s, 0,
+                -s, c, 0,
+                0, 0, 1;
+    backRot << c, -s, 0,
+                s, c, 0,
+                0, 0, 1;
+    */
 
     float ratio = (float) w / (float) h;
 
     glClearColor ( 0.8, 0.8, 0.9, 1.0 );
-
     glViewport( 0, 0, ( GLsizei )w, ( GLsizei )h );
 
     /* change to the projection matrix and set our viewing volume. */
@@ -155,7 +164,6 @@ bool App::OnInit() {
     glLoadIdentity( );
     gluPerspective( 45.0f, ratio, 0.1f, 1000.0f );
     glMatrixMode( GL_MODELVIEW );
-
     glLoadIdentity( );
 
     return true;
