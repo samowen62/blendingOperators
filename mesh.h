@@ -12,12 +12,13 @@
 using namespace std;
 using namespace Eigen;
 
-//TODO: eventually change draw to make it use this
+//TODO: eventually change draw to make it use this as an actual VBO
 struct VBOvertex
 {
   double x, y, z;        // Vertex
   double nx, ny, nz;     // Normal
 };
+
 
 inline vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
@@ -45,13 +46,6 @@ class Mesh {
       int buff_size;
       double precomputed_sin[360];
       vector< VBOvertex > verticies;
-
-      MatrixXd V;
-      MatrixXd TC; //don't need for anything
-      MatrixXd N;
-      MatrixXi F;
-      MatrixXi FTC; //don't need for anything
-      MatrixXi FN;
 
       MatrixXd A;
       MatrixXd B;
@@ -93,21 +87,40 @@ class Mesh {
         int  loadShader(const char* vertexFileName, const char* fragmentFileName);
         void set(const char* fileName);
         void setView(const char* fileName);
-        void generateVerticies();
         void generateHrbfCoefs();
         void generateBaryCoords();
         void writeHrbf();
         void readHrbf();
         void boneCalc();
-        void tangentalRelax(int iterations);
         void regenVerts();
         void transform(Matrix3d rot);
 
         double hrbfFunct(Vector3d x);
-        double compositionHrbf(Vector3d x);
         Vector3d hrbfGrad(Vector3d x);
-        
 
+        //simple blending operators
+        double _union_comp(Vector3d x, int neighbor_ind, float t){
+          return max(hrbfFunct(x), neighbors[neighbor_ind]->hrbfFunct(x));
+        }
+        double _clean_union_comp(Vector3d x, int neighbor_ind, float t){
+          double  f_1 = hrbfFunct(x),
+              f_2 = neighbors[neighbor_ind]->hrbfFunct(x);
+          return f_1 + f_2 - sqrt(f_1*f_1 + f_2*f_2);
+        }
+        double _bending_comp(Vector3d x, int neighbor_ind, float t){
+          t = t == 0 ? 1 : t;
+          return pow(pow(hrbfFunct(x), t) + pow(neighbors[neighbor_ind]->hrbfFunct(x), t), 1/t);
+        }
+
+        typedef double (Mesh::*comp_funct)(Vector3d,int,float);
+        comp_funct unionComp = &Mesh::_union_comp;
+        comp_funct cleanUnionComp = &Mesh::_clean_union_comp;
+        comp_funct blendingComp = &Mesh::_bending_comp;
+
+        void tangentalRelax(int iterations, comp_funct g, int neighbor, float param);
+
+        
+ 
         vector< Mesh* > neighbors;
         vector< vector< int > >neighborIndex;
         /* determines which verticies correspond and finds the tangents to them as well */

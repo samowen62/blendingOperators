@@ -45,7 +45,6 @@ void App::setFile(const char* file){
 void genHrbf(const char* obj){
   Mesh source;
   source.set(obj);
-  source.generateVerticies();
   source.generateHrbfCoefs();
   source.writeHrbf();
   return;
@@ -134,29 +133,29 @@ bool App::OnInit() {
     //put this before any rotation since the verticies and normals change
     Mesh::createUnion(meshes[0], meshes[1]);
 
-    //keep this after all createUnions
+    //these should be called after all createUnions
     meshes[0]->generateBaryCoords();
     meshes[1]->generateBaryCoords();
 
     Matrix3d rotation;
-    rotation << 0, 1, 0,
-                -1, 0, 0,
-                0, 0, 1;
+    Vector3d axis = meshes[0]->z_axis.cross(meshes[1]->z_axis);
+    Quaterniond rot_quat;
+
+    float theta = M_PI * 0.25;
+    float c = 0.5 * cos(theta);
+    float s = 0.5 * sin(theta);
+    axis *= s;
+
+    //needs to be adjusted
+    rot_quat = Quaternion<double>(c, axis(0), axis(1), axis(2));
+    rotation = rot_quat.toRotationMatrix();
+    //rotation << (1 - 2*axis(1)*axis(1) - 2*axis(2)*axis(2)), (2*axis(0)*axis(1) - 2*axis(2)*c, (2*axis(0)*axis(2) + 2*axis(1)*c),
+    //            (2*axis(0)*axis(1) + 2*axis(2)*c), (1 - 2*axis(0)*axis(0) - 2*axis(2)*axis(2)), (2*axis(1)*axis(2) - 2*axis(0)*c,
+     //           (1 - 2*axis(1)*axis(1) - 2*axis(2)*axis(2)), (2*axis(0)*axis(1) - 2*axis(2)*c, (2*axis(0)*axis(2) + 2*axis(1)*c);
+
     meshes[0]->transform(rotation);
-    meshes[0]->tangentalRelax(3);
-    meshes[1]->tangentalRelax(3);
-
-
-    /*
-    float c = cos(M_PI * 0.1);
-    float s = sin(M_PI * 0.1);
-    forwardRot << c, s, 0,
-                -s, c, 0,
-                0, 0, 1;
-    backRot << c, -s, 0,
-                s, c, 0,
-                0, 0, 1;
-    */
+    meshes[0]->tangentalRelax(3, (meshes[0]->cleanUnionComp), 0, -1);
+    meshes[1]->tangentalRelax(3, (meshes[1]->cleanUnionComp), 0, -1);
 
     float ratio = (float) w / (float) h;
 

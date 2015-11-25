@@ -113,85 +113,6 @@ Vector3d Mesh::hrbfGrad(Vector3d x){
 	return val;
 }
 
-double Mesh::compositionHrbf(Vector3d x){
-	double max = hrbfFunct(x);
-	for(int i = 0; i < neighbors.size(); i++){
-		double f_i = neighbors[i]->hrbfFunct(x);
-		if(f_i > max)
-			max = f_i;
-	}
-
-	return max;
-}
-
-
-void Mesh::generateVerticies(){
-	int j = 0;
-	int f1,f2,f3,fn;
-	num_verts = V.rows();
-	vecVerts.resize(num_verts);
-	vecNorms.resize(num_verts);
-	vecIsos.resize(num_verts);
-
-	for(int i = 0; i < num_verts; i++){
-		vector <int> newColumn;
-		vector <int> newInd;
-		vector <double> newBary;
-		VindexMap.push_back(newColumn);
-		edgeMap.push_back(newInd);
-		baryCoords.push_back(newBary);
-
-		Vector3d v;
-		v << V(i,0),V(i,1),V(i,2);
-		vecVerts[i] = v;
-	}
-
-	for (unsigned int i = 0; i < F.rows(); i++) {
-
-		f1 = F(i,0);
-		fn = FN(i,0);
-		VindexMap[f1].push_back(j);
-		verticies[j].x = V(f1,0); verticies[j].y = V(f1,1); verticies[j].z = V(f1,2);
-		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
-		j++;
-
-
-		f2 = F(i,1);
-		fn = FN(i,0);
-		VindexMap[f2].push_back(j);
-		verticies[j].x = V(f2,0); verticies[j].y = V(f2,1); verticies[j].z = V(f2,2);
-		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
-		j++;
-
-		f3 = F(i,2);
-		fn = FN(i,0);
-		VindexMap[f3].push_back(j);
-		verticies[j].x = V(f3,0); verticies[j].y = V(f3,1); verticies[j].z = V(f3,2);
-		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
-		j++;
-
-		save_face(f1,f2,f3);
-		save_face(f2,f3,f1);
-		save_face(f3,f1,f2);
-
-	}
-
-	for(unsigned int i = 0; i < num_verts; i++){
-		//per vertex normals
-		vector < double > n_avg = {0, 0, 0};
-		int size = VindexMap[i].size();
-		for(int j = 0; j < size; j++) {
-			VBOvertex vert = verticies[VindexMap[i][j]];
-			n_avg[0] += vert.nx;
-			n_avg[1] += vert.ny;
-			n_avg[2] += vert.nz;
-		}
-
-		Vector3d n;
-		n << (size == 0 ? 0 : n_avg[0] / size), (size == 0 ? 0 : n_avg[1] / size), (size == 0 ? 0 : n_avg[2] / size);
-		vecNorms[i] = n;
-	}
-}
 
 /*
  * This method calulates the barycentric coordinates of each vertex
@@ -250,7 +171,13 @@ void Mesh::generateBaryCoords(){
 	}
 }
 
-void Mesh::tangentalRelax(int iterations){
+/*
+ *	Performs barycentric recentering and tangental relaxation of the mesh.
+ *	The latter process uses the user specified composition function which itself
+ * 	needs to know which neighbor index we are looking at and may need a special
+ *	parameter defined by param.
+ */
+void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float param){
 	int sharedInd = -1, index, edgeSize;
 	double mu, scalar, f_i, alpha = 0.01;//depends on scale of model
 	Mesh* sharedMesh;
@@ -332,7 +259,6 @@ void Mesh::tangentalRelax(int iterations){
 				n_sum += mu*baryCoords[i][j]*n_mid;
 			}
 
-			
 			n_sum.normalize();
 			vecVerts[i] = sum;
 			vecNorms[i] = n_sum;
@@ -344,9 +270,10 @@ void Mesh::tangentalRelax(int iterations){
 		vector< Vector3d > iso_grads(num_verts);
 		for(int i = 0; i < num_verts; i++){
 			Vector3d grad_f = hrbfGrad(vecVerts[i]);
-			double 	f_i = compositionHrbf(vecVerts[i]),
-					norm = grad_f.norm();
-			norm = norm != 0 ? norm * norm : 1; //the latter shouldn't happen
+
+			double 	f_i = (this->*g)(vecVerts[i], neighbor, param);
+			double 	norm = grad_f.norm();
+			norm = norm != 0.0 ? norm * norm : 1.0; //the latter shouldn't happen
 
 			iso_grads[i] = (alpha * (vecIsos[i] - f_i) / norm) * grad_f;
 		}
@@ -368,6 +295,7 @@ void Mesh::tangentalRelax(int iterations){
 
 	for(int i = 0; i < neighbors.size(); i++)
 		neighbors[i]->regenVerts();
+
 	regenVerts();
 
 }
@@ -389,30 +317,7 @@ void Mesh::regenVerts(){
 }
 
 void Mesh::generateHrbfCoefs(){
-	int num_verts = V.rows();
 	B.resize(num_verts * 4, 1);
-	vecVerts.resize(num_verts);
-
-	for(unsigned int i = 0; i < num_verts; i++){
-		vector < double > n_avg = {0, 0, 0};
-		int size = VindexMap[i].size();
-		for(int j = 0; j < size; j++) {
-			VBOvertex vert = verticies[VindexMap[i][j]];
-			n_avg[0] += vert.nx;
-			n_avg[1] += vert.ny;
-			n_avg[2] += vert.nz;
-		}
-		B(4*i, 0) = 0.5;
-		B(4*i+1, 0) = size == 0 ? 0 : n_avg[0] / size;
-		B(4*i+2, 0) = size == 0 ? 0 : n_avg[1] / size;
-		B(4*i+3, 0) = size == 0 ? 0 : n_avg[2] / size;
-
-		Vector3d v1;
-		v1 << V(i,0), V(i,1), V(i,2);
-		vecVerts[i] = v1;
-	}
-
-
 	A.resize(num_verts * 4,num_verts * 4); //the 4 is because of the scalar and vector component we are solving for
 	int x_o, y_o;
 	double a1, a2, a3, _c, d1, d2, d3;
@@ -539,7 +444,6 @@ void Mesh::writeHrbf(){
 	string file;
 	file = "objs/" + base + ".hrbf";
 	out.open(file);
-	int num_verts = V.rows();
 
 	for(int i = 0; i < num_verts; i++){
 		int b = 4 * i;
@@ -610,7 +514,6 @@ void Mesh::boneCalc(){
  */
 void Mesh::setView(const char* fileName){
 	set(fileName);
-    generateVerticies();
     readHrbf();
     boneCalc();
 }
@@ -623,11 +526,84 @@ void Mesh::set(const char* fileName){
 	vector< string > sp_base = split(b, '/');
 	base = sp_base[sp_base.size() - 1]; 
 
-	int i;
+	MatrixXd V;
+  	MatrixXd TC; //don't need for anything
+  	MatrixXd N;
+  	MatrixXi F;
+  	MatrixXi FTC; //don't need for anything
+  	MatrixXi FN;
+
 	igl::readOBJ(fileName,V,TC,N,F,FTC,FN);
 
     buff_size = F.rows() * 3;
     verticies.resize(buff_size);    
+
+    
+  	int j = 0;
+	int f1,f2,f3,fn;
+	num_verts = V.rows();
+	vecVerts.resize(num_verts);
+	vecNorms.resize(num_verts);
+	vecIsos.resize(num_verts);
+
+	for(int i = 0; i < num_verts; i++){
+		vector <int> newColumn;
+		vector <int> newInd;
+		vector <double> newBary;
+		VindexMap.push_back(newColumn);
+		edgeMap.push_back(newInd);
+		baryCoords.push_back(newBary);
+
+		Vector3d v;
+		v << V(i,0),V(i,1),V(i,2);
+		vecVerts[i] = v;
+	}
+
+	for (unsigned int i = 0; i < F.rows(); i++) {
+
+		f1 = F(i,0);
+		fn = FN(i,0);
+		VindexMap[f1].push_back(j);
+		verticies[j].x = V(f1,0); verticies[j].y = V(f1,1); verticies[j].z = V(f1,2);
+		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
+		j++;
+
+
+		f2 = F(i,1);
+		fn = FN(i,0);
+		VindexMap[f2].push_back(j);
+		verticies[j].x = V(f2,0); verticies[j].y = V(f2,1); verticies[j].z = V(f2,2);
+		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
+		j++;
+
+		f3 = F(i,2);
+		fn = FN(i,0);
+		VindexMap[f3].push_back(j);
+		verticies[j].x = V(f3,0); verticies[j].y = V(f3,1); verticies[j].z = V(f3,2);
+		verticies[j].nx = N(fn,0); verticies[j].ny = N(fn,1); verticies[j].nz = N(fn,2);
+		j++;
+
+		save_face(f1,f2,f3);
+		save_face(f2,f3,f1);
+		save_face(f3,f1,f2);
+
+	}
+
+	for(unsigned int i = 0; i < num_verts; i++){
+		//per vertex normals
+		vector < double > n_avg = {0, 0, 0};
+		int size = VindexMap[i].size();
+		for(int j = 0; j < size; j++) {
+			VBOvertex vert = verticies[VindexMap[i][j]];
+			n_avg[0] += vert.nx;
+			n_avg[1] += vert.ny;
+			n_avg[2] += vert.nz;
+		}
+
+		Vector3d n;
+		n << (size == 0 ? 0 : n_avg[0] / size), (size == 0 ? 0 : n_avg[1] / size), (size == 0 ? 0 : n_avg[2] / size);
+		vecNorms[i] = n;
+	}
 
 }
         
@@ -640,13 +616,18 @@ void Mesh::draw(){
 		glNormal3d(v.nx,v.ny,v.nz);
 	    glVertex3d(v.x, v.y, v.z);
 	}
-
 	glEnd();
 	glUseProgram(0);
 	glPopMatrix();
 
 }
 
+/*
+ * 	This function creates a union between two Meshes by considering verticies that
+ *	lie within EDGE_ERROR away from each other the same. If EDGE_ERROR is too big
+ *	or the detail on the obj file is too fine this can lead to too many connections.
+ *	You can adjust EDGE_ERROR cautiously.
+ */
 void Mesh::createUnion(Mesh* m1, Mesh* m2){
 	vector< int > newNeigbor1;
 	vector< int > newNeigbor2;
@@ -678,8 +659,6 @@ void Mesh::createUnion(Mesh* m1, Mesh* m2){
 			m1->neighborIndex[m1size].push_back(minInd);
 			m2->neighborIndex[m1size].push_back(minInd);
 			m2->neighborIndex[m1size].push_back(i);
-			//seems to work fine
-			//cout << "connecting " << i << ' ' << minInd << endl;
 		}
 	}
 }
