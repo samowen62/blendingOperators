@@ -118,6 +118,8 @@ bool App::OnInit() {
     GLfloat lmodel_ambient[] = { 0.0, 0.0, 0.0, 0.0 };
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, lmodel_ambient);
 
+    //comment out for regular surfaces
+    glPolygonMode(GL_FRONT, GL_LINE);
     glEnable( GL_CULL_FACE );
     glCullFace( GL_BACK );
     glFrontFace( GL_CCW );
@@ -141,10 +143,12 @@ bool App::OnInit() {
                 -1, 0, 0,
                 0, 0, 1;
     meshes[0]->transform(rotation);
-    meshes[0]->tangentalRelax();
+    meshes[0]->tangentalRelax(3);
+    meshes[1]->tangentalRelax(3);
+
 
     /*
-      float c = cos(M_PI * 0.1);
+    float c = cos(M_PI * 0.1);
     float s = sin(M_PI * 0.1);
     forwardRot << c, s, 0,
                 -s, c, 0,

@@ -12,6 +12,7 @@
 using namespace std;
 using namespace Eigen;
 
+//TODO: eventually change draw to make it use this
 struct VBOvertex
 {
   double x, y, z;        // Vertex
@@ -98,10 +99,13 @@ class Mesh {
         void writeHrbf();
         void readHrbf();
         void boneCalc();
-        void tangentalRelax();
+        void tangentalRelax(int iterations);
         void regenVerts();
         void transform(Matrix3d rot);
+
         double hrbfFunct(Vector3d x);
+        double compositionHrbf(Vector3d x);
+        Vector3d hrbfGrad(Vector3d x);
         
 
         vector< Mesh* > neighbors;

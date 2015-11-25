@@ -66,19 +66,64 @@ Mesh::~Mesh(){
 	delete [] &vecNorms;
 }
 
+/*
+ *	This is the value of the iso surface at x
+ */
 double Mesh::hrbfFunct(Vector3d x){
 	double val = 0;
 	Vector3d diff;
 
-	for(int i = 0; i < vecVerts.size(); i++){
+	for(int i = 0; i < num_verts; i++){
 		diff = x - vecVerts[i];
 		double l = diff.norm();
 
-		val += l != 0 ? alpha_beta(i,0) * phi(l) + (dphi(l) / l) * (alpha_beta(i,1) * diff[0] + alpha_beta(i,2) * diff[1] + alpha_beta(i,3) * diff[2]) : 0;
+		val += l != 0 ? 
+			alpha_beta(i,0) * phi(l) 
+			+ (dphi(l) / l) * (alpha_beta(i,1) * diff[0] + alpha_beta(i,2) * diff[1] + alpha_beta(i,3) * diff[2]) 
+			: 0;
 	}
 
 	return val;
 }
+
+/*
+ *	This is the gradient of the iso surface at x
+ */
+Vector3d Mesh::hrbfGrad(Vector3d x){
+	Vector3d val, diff;
+	val << 0, 0, 0;
+
+	for(int i = 0; i < num_verts; i++){
+		diff = x - vecVerts[i];
+		double l = diff.norm();
+
+		if(l == 0)
+			continue;
+
+		Vector3d c_step;
+			c_step << alpha_beta(i,1), alpha_beta(i,2), alpha_beta(i,3);
+		c_step = 
+		 	diff * (alpha_beta(i,0) * dphi(l) / l)
+		 	+ c_step * (dphi(l)/l)
+		 	+ diff * (diff.dot(c_step) * (1/(l*l)) * (ddphi(l) - (dphi(l)/l)));
+
+		val += c_step;
+	}
+	
+	return val;
+}
+
+double Mesh::compositionHrbf(Vector3d x){
+	double max = hrbfFunct(x);
+	for(int i = 0; i < neighbors.size(); i++){
+		double f_i = neighbors[i]->hrbfFunct(x);
+		if(f_i > max)
+			max = f_i;
+	}
+
+	return max;
+}
+
 
 void Mesh::generateVerticies(){
 	int j = 0;
@@ -203,88 +248,126 @@ void Mesh::generateBaryCoords(){
 		for(int j = 0; j < size; j++)
 			baryCoords[i][j] = baryCoords[i][j] / area;
 	}
-
-	/*for(int i = 0; i < num_verts; i++){
-		cout << i << ": ";
-		for(int j = 0; j < baryCoords[i].size(); j++)
-			cout << baryCoords[i][j] << ' ';
-		cout << endl;
-	}*/
-
 }
 
-void Mesh::tangentalRelax(){
+void Mesh::tangentalRelax(int iterations){
 	int sharedInd = -1, index, edgeSize;
-	double mu;
+	double mu, scalar, f_i, alpha = 0.01;//depends on scale of model
 	Mesh* sharedMesh;
-	Vector3d sum;
+	Vector3d sum, n_sum;
 
-	//repeat the below process a few times (3)?
+	while(iterations > 0){
+		iterations--;
 
-	//should look at edges here and gloss over them in the next traversal 
-	for(int i = 0; i < neighbors.size(); i++){
-		sharedMesh = neighbors[i];
+		//should look at edges here and gloss over them in the next traversal 
+		for(int i = 0; i < neighbors.size(); i++){
+			sharedMesh = neighbors[i];
 
-		for(int j = 0; j < neighborIndex[i].size(); j+=2){
-			index = neighborIndex[i][j];
-			sharedInd = neighborIndex[i][j+1];
+			for(int j = 0; j < neighborIndex[i].size(); j+=2){
+				index = neighborIndex[i][j];
+				sharedInd = neighborIndex[i][j+1];
+
+				mu = max(
+					max(
+						0.0, 
+						1.0 - pow(abs(hrbfFunct(vecVerts[index]) - vecIsos[index]) - 1, 4)
+					), 
+					1.0 - pow(abs(hrbfFunct(sharedMesh->vecVerts[sharedInd]) - sharedMesh->vecIsos[sharedInd]) - 1, 4)
+				);
+
+
+				sum = (1 - mu)*vecVerts[index];
+				n_sum = (1 - mu)*vecNorms[index];
+
+				edgeSize = edgeMap[index].size() / 2;
+				for(int k = 0; k < edgeSize; k++ ){
+					Vector3d mid = 0.5 * (vecVerts[edgeMap[index][2*k]] + vecVerts[edgeMap[index][2*k+1]]);
+					Vector3d n_mid = 0.5 * (vecNorms[edgeMap[index][2*k]] + vecNorms[edgeMap[index][2*k+1]]);
+
+					sum += mu*baryCoords[index][k]*mid;
+					n_sum += mu*baryCoords[index][k]*n_mid;
+				}
+
+				//this made diff smaller cuz didn't account for all the points yet
+				edgeSize = sharedMesh->edgeMap[sharedInd].size() / 2;
+				for(int k = 0; k < edgeSize; k++ ){
+					Vector3d mid = 0.5 * (sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*k]] + sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*k+1]]);
+					Vector3d n_mid = 0.5 * (sharedMesh->vecNorms[sharedMesh->edgeMap[sharedInd][2*k]] + sharedMesh->vecNorms[sharedMesh->edgeMap[sharedInd][2*k+1]]);
+
+					sum += mu*sharedMesh->baryCoords[sharedInd][k]*mid;
+					n_sum += mu*sharedMesh->baryCoords[sharedInd][k]*n_mid;
+				}
+
+				n_sum.normalize();
+				//cout << "n diff: " << n_sum.dot(vecNorms[i]) << endl;
+
+				vecVerts[index] = sum;
+				vecNorms[index] = n_sum;
+				sharedMesh->vecVerts[sharedInd] = sum;
+				sharedMesh->vecNorms[sharedInd] = n_sum;
+			}
+		}
+
+		//normal points
+		for(int i = 0; i < num_verts; i++){
+			//this just makes sure we gloss over the points above
+			for(int j = 0; j < neighbors.size(); j++)
+				for(int k = 0; k < neighborIndex[j].size(); k+=2)
+					if(i == neighborIndex[j][k])
+						goto skip;
+
+			f_i = hrbfFunct(vecVerts[i]);
+			mu = max(0.0, 1 - pow(abs(f_i - vecIsos[i]) - 1, 4));
+			//cout << "mu: " << mu << " f(v_i): " << f_i << " iso_i " << vecIsos[i] << endl;
+
+			sum = (1 - mu)*vecVerts[i];
+			n_sum = (1 - mu)*vecNorms[index];
+
+			edgeSize = edgeMap[i].size() / 2;
+			for(int j = 0; j < edgeSize; j++ ){
+				Vector3d mid = 0.5 * (vecVerts[edgeMap[i][2*j]] + vecVerts[edgeMap[i][2*j+1]]);
+				Vector3d n_mid = 0.5 * (vecNorms[edgeMap[i][2*j]] + vecNorms[edgeMap[i][2*j+1]]);
+
+				sum += mu*baryCoords[i][j]*mid;
+				n_sum += mu*baryCoords[i][j]*n_mid;
+			}
+
 			
-			mu = max(
-				max(
-					0.0, 
-					1.0 - pow(abs(hrbfFunct(vecVerts[index]) - vecIsos[index]) - 1, 4)
-				), 
-				1.0 - pow(abs(hrbfFunct(sharedMesh->vecVerts[sharedInd]) - sharedMesh->vecIsos[sharedInd]) - 1, 4)
-			);
+			n_sum.normalize();
+			vecVerts[i] = sum;
+			vecNorms[i] = n_sum;
 
-			sum = (1 - mu)*vecVerts[index];
-
-			edgeSize = edgeMap[index].size() / 2;
-			for(int k = 0; k < edgeSize; k++ ){
-				Vector3d mid = 0.5 * (vecVerts[edgeMap[index][2*k]] + vecVerts[edgeMap[index][2*k+1]]);
-				sum += mu*baryCoords[index][k]*mid;
-			}
-
-			//this made diff smaller cuz didn't account for all the points yet
-			edgeSize = sharedMesh->edgeMap[sharedInd].size() / 2;
-			for(int k = 0; k < edgeSize; k++ ){
-				Vector3d mid = 0.5 * (sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*k]] + sharedMesh->vecVerts[sharedMesh->edgeMap[sharedInd][2*k+1]]);
-				sum += mu*sharedMesh->baryCoords[sharedInd][k]*mid;
-			}
-
-			//cout << "diff: " << (sum - vecVerts[index]).norm() << endl;
-			vecVerts[index] = sum;
-			sharedMesh->vecVerts[sharedInd] = sum;
-		}
-		sharedMesh->regenVerts();
-	}
-
-	//normal points
-	for(int i = 0; i < num_verts; i++){
-		//this just makes sure we gloss over the points above
-		for(int j = 0; j < neighbors.size(); j++)
-			for(int k = 0; k < neighborIndex[j].size(); k+=2)
-				if(i == neighborIndex[j][k])
-					goto skip;
-
-		mu = max(0.0, 1.0 - pow(abs(hrbfFunct(vecVerts[i]) - vecIsos[i]) - 1, 4));
-
-		sum = (1 - mu)*vecVerts[i];
-
-		edgeSize = edgeMap[i].size() / 2;
-		for(int j = 0; j < edgeSize; j++ ){
-			Vector3d mid = 0.5 * (vecVerts[edgeMap[i][2*j]] + vecVerts[edgeMap[i][2*j+1]]);
-			sum += mu*baryCoords[i][j]*mid;
+			skip:;		
 		}
 
-		//cout << "diff: " << (sum - vecVerts[i]).norm() << endl;
-		vecVerts[i] = sum;
+		//vertex projection
+		vector< Vector3d > iso_grads(num_verts);
+		for(int i = 0; i < num_verts; i++){
+			Vector3d grad_f = hrbfGrad(vecVerts[i]);
+			double 	f_i = compositionHrbf(vecVerts[i]),
+					norm = grad_f.norm();
+			norm = norm != 0 ? norm * norm : 1; //the latter shouldn't happen
 
-		skip:
+			iso_grads[i] = (alpha * (vecIsos[i] - f_i) / norm) * grad_f;
+		}
 
-		;		
+		//we need 2 loops for this part since the values
+		//of the verticies effect the hrbf function
+		for(int i = 0; i < num_verts; i++)
+			vecVerts[i] += iso_grads[i];
+
+		//update neighbors as well
+		for(int i = 0; i < neighbors.size(); i++)
+			for(int j = 0; j < neighborIndex[i].size(); j+=2)
+				neighbors[i]->vecVerts[neighborIndex[i][j+1]] += iso_grads[neighborIndex[i][j]];
+
 	}
 
+	//for(int i = 0; i < num_verts; i++)
+	//	cout << i << ": " << hrbfFunct(vecVerts[i]) << ' ' <<  vecIsos[i] << endl;
+
+	for(int i = 0; i < neighbors.size(); i++)
+		neighbors[i]->regenVerts();
 	regenVerts();
 
 }
@@ -298,6 +381,9 @@ void Mesh::regenVerts(){
 			verticies[VindexMap[i][j]].x = vecVerts[i](0); 
 			verticies[VindexMap[i][j]].y = vecVerts[i](1);
 			verticies[VindexMap[i][j]].z = vecVerts[i](2);
+			verticies[VindexMap[i][j]].nx = vecNorms[i](0); 
+			verticies[VindexMap[i][j]].ny = vecNorms[i](1);
+			verticies[VindexMap[i][j]].nz = vecNorms[i](2);
 		}
 	}
 }
@@ -505,7 +591,7 @@ void Mesh::transform(Matrix3d rot){
 void Mesh::boneCalc(){
 	Vector3d rel_vec;
 
-	for(int i = 0; i < V.rows(); i++){
+	for(int i = 0; i < num_verts; i++){
 		Vector3d bone_c;
 		double x, y, z;
 
