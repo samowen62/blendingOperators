@@ -44,7 +44,7 @@ class Mesh {
 
       string base;
       int buff_size;
-      double precomputed_sin[360];
+      //double precomputed_sin[360];
       vector< VBOvertex > verticies;
 
       MatrixXd A;
@@ -154,23 +154,12 @@ class Mesh {
         }
 
         void save_face(int f1, int f2, int f3){
-          /*bool found1 = false, found2 = false;
-          for(auto it = edgeMap[f1].begin(); it != edgeMap[f1].end(); ++it) {
-              if(*it == f2)
-                found1 = true;
-              else if(*it == f3)
-                found2 = true;
-          }*/
-          //if(!found1)
-            edgeMap[f1].push_back(f2);
-         // if(!found2)
-            edgeMap[f1].push_back(f3);
-
-            //we want to repeat since we need to know adjacent edges
+          edgeMap[f1].push_back(f2);
+          edgeMap[f1].push_back(f3);
         }
 
-        double tsin(int x) { return precomputed_sin[x & 360]; }
-        double tcos(int x) { return precomputed_sin[(x + 90) & 360]; }
+        //double tsin(int x) { return precomputed_sin[x & 360]; }
+        //double tcos(int x) { return precomputed_sin[(x + 90) & 360]; }
 
 };
 

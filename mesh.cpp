@@ -37,9 +37,9 @@ void printShaderInfoLog(GLint shader)
 }
 
 Mesh::Mesh(const char* shaderFile){
-	for (int i=0; i<360; i++) {
+	/*for (int i=0; i<360; i++) {
         precomputed_sin[i] = sin(i*2*M_PI/360);
-    }
+    }*/
 
 	string file, vert, frag;
 	file.append(shaderFile);
@@ -54,16 +54,16 @@ Mesh::Mesh(const char* shaderFile){
 };
 
 Mesh::Mesh() {
-	for (int i=0; i<360; i++) {
+	/*for (int i=0; i<360; i++) {
         precomputed_sin[i] = sin(i*2*M_PI/360);
-    }
+    }*/
 }
 
 Mesh::~Mesh(){
-	delete [] &VindexMap;
+	/*delete [] &VindexMap;
 	delete [] &verticies;
 	delete [] &vecVerts;
-	delete [] &vecNorms;
+	delete [] &vecNorms;*/
 }
 
 /*

@@ -1,0 +1,2 @@
+# Blending Operators
+We utilize Hermite radial basis functions (HRBFs) to specify the surface of each bone of a skeleton implicitly as a level set. These functions are particularly useful when creating realistic blends/unions between intersecting joints. This repository features implementations of some of these blending operators using techniques detailed in Vaillant et. al. and Gourmel et. al. (to be included later).

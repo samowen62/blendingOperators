@@ -138,24 +138,20 @@ bool App::OnInit() {
     meshes[1]->generateBaryCoords();
 
     Matrix3d rotation;
-    Vector3d axis = meshes[0]->z_axis.cross(meshes[1]->z_axis);
-    Quaterniond rot_quat;
+    Vector3d axis = meshes[0]->z_axis.cross(meshes[1]->z_axis).normalized();
+    float theta = M_PI * 0.5;
 
-    float theta = M_PI * 0.25;
-    float c = 0.5 * cos(theta);
-    float s = 0.5 * sin(theta);
-    axis *= s;
+    //create a new method that will store the angle information for blending purposes
+    //when rotating a bone relative to another
+    rotation = AngleAxisd(theta, axis);
+    //rotation << (1 - 2*axis(1)*axis(1) - 2*axis(2)*axis(2)), (2*axis(0)*axis(1) - 2*axis(2)*c), (2*axis(0)*axis(2) + 2*axis(1)*c),
+    //            (2*axis(0)*axis(1) + 2*axis(2)*c), (1 - 2*axis(0)*axis(0) - 2*axis(2)*axis(2)), (2*axis(1)*axis(2) - 2*axis(0)*c),
+    //            (2*axis(0)*axis(2) - 2*axis(1)*c), (2*axis(1)*axis(2) + 2*axis(0)*c), (1 - 2*axis(0)*axis(0) - 2*axis(1)*axis(1));
 
-    //needs to be adjusted
-    rot_quat = Quaternion<double>(c, axis(0), axis(1), axis(2));
-    rotation = rot_quat.toRotationMatrix();
-    //rotation << (1 - 2*axis(1)*axis(1) - 2*axis(2)*axis(2)), (2*axis(0)*axis(1) - 2*axis(2)*c, (2*axis(0)*axis(2) + 2*axis(1)*c),
-    //            (2*axis(0)*axis(1) + 2*axis(2)*c), (1 - 2*axis(0)*axis(0) - 2*axis(2)*axis(2)), (2*axis(1)*axis(2) - 2*axis(0)*c,
-     //           (1 - 2*axis(1)*axis(1) - 2*axis(2)*axis(2)), (2*axis(0)*axis(1) - 2*axis(2)*c, (2*axis(0)*axis(2) + 2*axis(1)*c);
-
+    cout << "det: " << rotation.determinant() << endl;
     meshes[0]->transform(rotation);
-    meshes[0]->tangentalRelax(3, (meshes[0]->cleanUnionComp), 0, -1);
-    meshes[1]->tangentalRelax(3, (meshes[1]->cleanUnionComp), 0, -1);
+    meshes[0]->tangentalRelax(3, (meshes[0]->blendingComp), 0, 2);
+    meshes[1]->tangentalRelax(3, (meshes[1]->blendingComp), 0, 2);
 
     float ratio = (float) w / (float) h;
 
