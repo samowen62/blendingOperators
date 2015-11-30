@@ -30,7 +30,7 @@ class App {
       float zoom = 0.f;
       float zoomY = 0.f;
       float zoomZ = -0.5;
-      int w=800,h=600;
+      int w=900,h=675;
 
       vector<bool> k_down = {0,0,0,0,0,0,0,0,0,0};
 
@@ -39,7 +39,7 @@ class App {
 
 
     public: 
-        double alpha;
+        double alpha, lambda;
 
         App();
  
@@ -53,6 +53,7 @@ class App {
         void OnCleanup();
         void setFile(const char* file);
         void key_read();
+        void initializeMesh();
 
 };
  

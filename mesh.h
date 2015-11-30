@@ -54,6 +54,7 @@ class Mesh {
       MatrixXd alpha_beta;
 
     public:  
+        //make more of these private but use friend class mesh
         int num_verts;
 
         vector< Vector3d > vecVerts;
@@ -77,6 +78,9 @@ class Mesh {
         /* user specified parameter (0.35 in Vaillant) that controls the degree we rely on isosurface tracking */
         double alpha = 0.35;
 
+        /* user specified parameter that controls how much we rely on neighboring verticies when smoothing */
+        double lambda = 0.3;
+
         /* the center and orientation of the bone's cylindrical coordinate system */
         Vector3d origin;
         Vector3d x_axis;
@@ -84,7 +88,7 @@ class Mesh {
         Vector3d z_axis;
 
         Mesh();
-        Mesh(double _alpha, const char* shaderFile);
+        Mesh(double _alpha, double _lambda, const char* _base, const char* shaderFile);
         virtual ~Mesh(void);
         
         void draw();

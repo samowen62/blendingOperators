@@ -56,13 +56,14 @@ int main(int argc, char* argv[]) {
 
     if(mode == "viewer"){
 
-      if(argc < 3){
-        fprintf(stderr, "Usage: ./out viewer <double>\n" );
+      if(argc < 4){
+        fprintf(stderr, "Usage: ./out viewer <float> <float>\n" );
         exit(1);
       }
 
       App viewer;
       viewer.alpha = stod(argv[2]);
+      viewer.lambda = stod(argv[3]);
  
       return viewer.OnExecute();
     }else if(mode == "hrbf"){
@@ -75,13 +76,44 @@ int main(int argc, char* argv[]) {
       //seg faults for some reason?
 
     }else{
-      fprintf(stderr, "Usage: ./out [viewer/hrbf] <file>.obj\n" );
+      fprintf(stderr, "Usage: ./out [viewer/hrbf] [<double>/<file>.obj]\n" );
       exit(1);
     }
     return 0;
 }
 
+void App::initializeMesh(){
+    meshes.resize(2);
 
+    //TODO: wrap mesh class with boost and then just call python script in main
+    meshes[0] = new Mesh(alpha, lambda, "forearm", "shader1");
+    meshes[1] = new Mesh(alpha, lambda, "arm", "shader1");
+    //meshes[0] = new Mesh(alpha, "fingerTip", "shader1");
+    //meshes[1] = new Mesh(alpha, "fingerMid", "shader1");
+
+    
+    //put this before any rotation since the verticies and normals change
+    Mesh::createUnion(meshes[0], meshes[1]);
+
+    //these should be called after all createUnions
+    meshes[0]->generateBaryCoords();
+    meshes[1]->generateBaryCoords();
+
+    Matrix3d rotation;
+    Vector3d axis = meshes[0]->z_axis.cross(meshes[1]->z_axis).normalized();
+    float theta = M_PI * 0.5;
+
+    //create a new method that will store the angle information for blending purposes
+    //when rotating a bone relative to another
+    rotation = AngleAxisd(theta, axis);
+   
+    meshes[0]->transform(rotation);
+    meshes[0]->tangentalRelax(2, (meshes[0]->cleanUnionComp), 0, 2);
+    meshes[1]->tangentalRelax(2, (meshes[1]->cleanUnionComp), 0, 2);
+
+    //./out viewer 0.06 0.4   for arm           cleanUnionComp
+    //./out viewer 0.0001 0.4 for fingerTip   cleanUnionComp
+}
 
 bool App::OnInit() {
     if(SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -99,7 +131,7 @@ bool App::OnInit() {
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
  
  
-    SDL_CreateWindowAndRenderer(800, 600, SDL_WINDOW_OPENGL, &win, &ren);
+    SDL_CreateWindowAndRenderer(w, h, SDL_WINDOW_OPENGL, &win, &ren);
     SDL_GL_CreateContext(win);
     SDL_GetRendererInfo(ren, &renderInfo);
     if ((renderInfo.flags & SDL_RENDERER_ACCELERATED) == 0 ||  (renderInfo.flags & SDL_RENDERER_TARGETTEXTURE) == 0) {
@@ -123,44 +155,8 @@ bool App::OnInit() {
     glCullFace( GL_BACK );
     glFrontFace( GL_CCW );
 
-
-    meshes.resize(2);
-    meshes[0] = new Mesh(alpha, "forearm");
-    //meshFile.c_str()
-    meshes[0]->setView("objs/forearm.obj");
-    meshes[1] = new Mesh(alpha, "arm");
-    meshes[1]->setView("objs/arm.obj");
-
-    //TODO: wrap mesh class with boost and then just call python script in main
-    /*
-    meshes[0] = new Mesh(alpha, "fingerTip");
-    meshes[0]->setView("objs/fingerTip.obj");
-    meshes[1] = new Mesh(alpha, "fingerMid");
-    meshes[1]->setView("objs/fingerMid.obj");*/
-
-    //put this before any rotation since the verticies and normals change
-    Mesh::createUnion(meshes[0], meshes[1]);
-
-    //these should be called after all createUnions
-    meshes[0]->generateBaryCoords();
-    meshes[1]->generateBaryCoords();
-
-    Matrix3d rotation;
-    Vector3d axis = meshes[0]->z_axis.cross(meshes[1]->z_axis).normalized();
-    float theta = M_PI * 0.5;
-
-    //create a new method that will store the angle information for blending purposes
-    //when rotating a bone relative to another
-    rotation = AngleAxisd(theta, axis);
-    //rotation << (1 - 2*axis(1)*axis(1) - 2*axis(2)*axis(2)), (2*axis(0)*axis(1) - 2*axis(2)*c), (2*axis(0)*axis(2) + 2*axis(1)*c),
-    //            (2*axis(0)*axis(1) + 2*axis(2)*c), (1 - 2*axis(0)*axis(0) - 2*axis(2)*axis(2)), (2*axis(1)*axis(2) - 2*axis(0)*c),
-    //            (2*axis(0)*axis(2) - 2*axis(1)*c), (2*axis(1)*axis(2) + 2*axis(0)*c), (1 - 2*axis(0)*axis(0) - 2*axis(1)*axis(1));
-
-    meshes[0]->transform(rotation);
-    meshes[0]->tangentalRelax(3, (meshes[0]->cleanUnionComp), 0, 2);
-    meshes[1]->tangentalRelax(3, (meshes[1]->cleanUnionComp), 0, 2);
+    initializeMesh();
     
-
     float ratio = (float) w / (float) h;
 
     glClearColor ( 0.8, 0.8, 0.9, 1.0 );

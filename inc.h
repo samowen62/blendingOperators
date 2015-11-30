@@ -15,5 +15,6 @@
 #include <igl/readOBJ.h>
 #include <iostream>
 #include <math.h>
+#include <assert.h>
 
 #endif
