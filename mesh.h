@@ -35,7 +35,8 @@ inline vector<string> split(const string &s, char delim) {
     return elems;
 }
 
-
+//TODO template the class so floats and doubles can be used
+//template<typename _Scalar>
 class Mesh {
     private:
       GLuint  ShaderProgram;
@@ -67,11 +68,14 @@ class Mesh {
         /* This maps indicies in vecVerts/vecNorms/boneCoords to the neighboring points */
         vector< vector <int> > edgeMap;
 
-        /* This vector is half the size as edgeMap since it gives barycentric coordinates for each pair*/
+        /* This vector is half the size as edgeMap since it gives barycentric coordinates for each pair */
         vector< vector <double> > baryCoords;
 
         /* the average hrbf iso value of all the verticies */
         double avg_iso;
+
+        /* user specified parameter (0.35 in Vaillant) that controls the degree we rely on isosurface tracking */
+        double alpha = 0.35;
 
         /* the center and orientation of the bone's cylindrical coordinate system */
         Vector3d origin;
@@ -80,7 +84,7 @@ class Mesh {
         Vector3d z_axis;
 
         Mesh();
-        Mesh(const char* shaderFile);
+        Mesh(double _alpha, const char* shaderFile);
         virtual ~Mesh(void);
         
         void draw();
@@ -93,27 +97,41 @@ class Mesh {
         void readHrbf();
         void boneCalc();
         void regenVerts();
+        //if we want to embedd in python change this method to accepting floats for axis and angle
         void transform(Matrix3d rot);
 
+
         double hrbfFunct(Vector3d x);
+        //_Scalar hrbfFunct(Vector3d x);
         Vector3d hrbfGrad(Vector3d x);
 
         //simple blending operators
         double _union_comp(Vector3d x, int neighbor_ind, float t){
           return max(hrbfFunct(x), neighbors[neighbor_ind]->hrbfFunct(x));
         }
+
+        double _average_comp(Vector3d x, int neighbor_ind, float t){
+          return (hrbfFunct(x) + neighbors[neighbor_ind]->hrbfFunct(x)) / 2.0;
+        }
+
         double _clean_union_comp(Vector3d x, int neighbor_ind, float t){
           double  f_1 = hrbfFunct(x),
               f_2 = neighbors[neighbor_ind]->hrbfFunct(x);
           return f_1 + f_2 - sqrt(f_1*f_1 + f_2*f_2);
         }
+
         double _bending_comp(Vector3d x, int neighbor_ind, float t){
           t = t == 0 ? 1 : t;
           return pow(pow(hrbfFunct(x), t) + pow(neighbors[neighbor_ind]->hrbfFunct(x), t), 1/t);
         }
 
         typedef double (Mesh::*comp_funct)(Vector3d,int,float);
+
+        //if we want to generalize this class
+        //template <typename T>
+        //using Function = void (T::*)(Parameters p);
         comp_funct unionComp = &Mesh::_union_comp;
+        comp_funct averageComp = &Mesh::_average_comp;
         comp_funct cleanUnionComp = &Mesh::_clean_union_comp;
         comp_funct blendingComp = &Mesh::_bending_comp;
 

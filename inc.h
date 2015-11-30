@@ -10,6 +10,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <Eigen/LU>
 #include <igl/frustum.h>
 #include <igl/readOBJ.h>
 #include <iostream>

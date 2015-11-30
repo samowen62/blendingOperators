@@ -36,10 +36,8 @@ void printShaderInfoLog(GLint shader)
 	}
 }
 
-Mesh::Mesh(const char* shaderFile){
-	/*for (int i=0; i<360; i++) {
-        precomputed_sin[i] = sin(i*2*M_PI/360);
-    }*/
+Mesh::Mesh(double _alpha, const char* shaderFile){
+	alpha = _alpha;
 
 	string file, vert, frag;
 	file.append(shaderFile);
@@ -54,9 +52,7 @@ Mesh::Mesh(const char* shaderFile){
 };
 
 Mesh::Mesh() {
-	/*for (int i=0; i<360; i++) {
-        precomputed_sin[i] = sin(i*2*M_PI/360);
-    }*/
+
 }
 
 Mesh::~Mesh(){
@@ -69,8 +65,10 @@ Mesh::~Mesh(){
 /*
  *	This is the value of the iso surface at x
  */
+
+//TODO: put function t_r() around this
 double Mesh::hrbfFunct(Vector3d x){
-	double val = 0;
+	double val = (double)(0);
 	Vector3d diff;
 
 	for(int i = 0; i < num_verts; i++){
@@ -179,11 +177,11 @@ void Mesh::generateBaryCoords(){
  */
 void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float param){
 	int sharedInd = -1, index, edgeSize;
-	double mu, scalar, f_i, alpha = 0.01;//depends on scale of model
+	double mu, scalar, f_i;//depends on scale of model
 	Mesh* sharedMesh;
 	Vector3d sum, n_sum;
 
-	while(iterations > 0){
+	while(iterations > -1){
 		iterations--;
 
 		//should look at edges here and gloss over them in the next traversal 
@@ -194,14 +192,17 @@ void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float para
 				index = neighborIndex[i][j];
 				sharedInd = neighborIndex[i][j+1];
 
+				//mu needs to be adjusted
 				mu = max(
 					max(
-						0.0, 
-						1.0 - pow(abs(hrbfFunct(vecVerts[index]) - vecIsos[index]) - 1, 4)
+						0.4, 
+						1.0 - pow(abs((hrbfFunct(vecVerts[index])- vecIsos[index])/avg_iso) - 1, 4)
 					), 
-					1.0 - pow(abs(hrbfFunct(sharedMesh->vecVerts[sharedInd]) - sharedMesh->vecIsos[sharedInd]) - 1, 4)
+					1.0 - pow(abs((sharedMesh->hrbfFunct(sharedMesh->vecVerts[sharedInd]) - sharedMesh->vecIsos[sharedInd])/sharedMesh->avg_iso) - 1, 4)
 				);
 
+
+				//cout << iterations << " mu: " << mu << endl;
 
 				sum = (1 - mu)*vecVerts[index];
 				n_sum = (1 - mu)*vecNorms[index];
@@ -243,9 +244,9 @@ void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float para
 					if(i == neighborIndex[j][k])
 						goto skip;
 
-			f_i = hrbfFunct(vecVerts[i]);
-			mu = max(0.0, 1 - pow(abs(f_i - vecIsos[i]) - 1, 4));
-			//cout << "mu: " << mu << " f(v_i): " << f_i << " iso_i " << vecIsos[i] << endl;
+			f_i = (this->*g)(vecVerts[i], neighbor, param)/avg_iso;
+			mu = max(0.4, 1 - pow(abs((f_i - vecIsos[i])/avg_iso) - 1, 4));
+			//cout << "mu: " << mu << " f(v_i): " << f_i << " iso_i " << vecIsos[i]/avg_iso << endl;
 
 			sum = (1 - mu)*vecVerts[i];
 			n_sum = (1 - mu)*vecNorms[index];
@@ -266,6 +267,10 @@ void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float para
 			skip:;		
 		}
 
+		//to ensure our last step is barycentric recentering
+		if(iterations == 0)
+			break;
+
 		//vertex projection
 		vector< Vector3d > iso_grads(num_verts);
 		for(int i = 0; i < num_verts; i++){
@@ -274,9 +279,25 @@ void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float para
 			double 	f_i = (this->*g)(vecVerts[i], neighbor, param);
 			double 	norm = grad_f.norm();
 			norm = norm != 0.0 ? norm * norm : 1.0; //the latter shouldn't happen
+			//cout << i << ": " << f_i << " iso_0: " << vecIsos[i] << endl;
 
 			iso_grads[i] = (alpha * (vecIsos[i] - f_i) / norm) * grad_f;
 		}
+
+		/*
+		 *	ADDED STEP
+		 *	Use a barycentric convolution filter across the norm of the iso_grads array
+		 *	to ensure our points move "nicely", putting barycentric recentering here might
+		 *	also have a similar effect.
+		 */
+		/*for(int i = 0; i < num_verts; i++){
+			edgeSize = edgeMap[i].size() / 2;
+			for(int k = 0; k < edgeSize; k++ ){
+				Vector3d mid = 0.5 * (iso_grads[edgeMap[i][2*k]] + iso_grads[edgeMap[i][2*k+1]]);
+
+				sum += mu*baryCoords[i][k]*mid;
+			}
+		}*/
 
 		//we need 2 loops for this part since the values
 		//of the verticies effect the hrbf function

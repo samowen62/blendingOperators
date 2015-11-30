@@ -39,6 +39,8 @@ class App {
 
 
     public: 
+        double alpha;
+
         App();
  
         virtual ~App(void);

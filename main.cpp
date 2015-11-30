@@ -57,14 +57,14 @@ int main(int argc, char* argv[]) {
     if(mode == "viewer"){
 
       if(argc < 3){
-        fprintf(stderr, "Usage: ./out viewer objs/<file>.obj\n" );
+        fprintf(stderr, "Usage: ./out viewer <double>\n" );
         exit(1);
       }
 
-      App theApp;
-      theApp.setFile(argv[2]);
+      App viewer;
+      viewer.alpha = stod(argv[2]);
  
-      return theApp.OnExecute();
+      return viewer.OnExecute();
     }else if(mode == "hrbf"){
       if(argc < 3){
         fprintf(stderr, "Usage: ./out hrbf objs/<file>.obj\n" );
@@ -125,10 +125,18 @@ bool App::OnInit() {
 
 
     meshes.resize(2);
-    meshes[0] = new Mesh("fingerTip");
-    meshes[0]->setView(meshFile.c_str());
-    meshes[1] = new Mesh("fingerMid");
-    meshes[1]->setView("objs/fingerMid.obj");
+    meshes[0] = new Mesh(alpha, "forearm");
+    //meshFile.c_str()
+    meshes[0]->setView("objs/forearm.obj");
+    meshes[1] = new Mesh(alpha, "arm");
+    meshes[1]->setView("objs/arm.obj");
+
+    //TODO: wrap mesh class with boost and then just call python script in main
+    /*
+    meshes[0] = new Mesh(alpha, "fingerTip");
+    meshes[0]->setView("objs/fingerTip.obj");
+    meshes[1] = new Mesh(alpha, "fingerMid");
+    meshes[1]->setView("objs/fingerMid.obj");*/
 
     //put this before any rotation since the verticies and normals change
     Mesh::createUnion(meshes[0], meshes[1]);
@@ -148,10 +156,10 @@ bool App::OnInit() {
     //            (2*axis(0)*axis(1) + 2*axis(2)*c), (1 - 2*axis(0)*axis(0) - 2*axis(2)*axis(2)), (2*axis(1)*axis(2) - 2*axis(0)*c),
     //            (2*axis(0)*axis(2) - 2*axis(1)*c), (2*axis(1)*axis(2) + 2*axis(0)*c), (1 - 2*axis(0)*axis(0) - 2*axis(1)*axis(1));
 
-    cout << "det: " << rotation.determinant() << endl;
     meshes[0]->transform(rotation);
-    meshes[0]->tangentalRelax(3, (meshes[0]->blendingComp), 0, 2);
-    meshes[1]->tangentalRelax(3, (meshes[1]->blendingComp), 0, 2);
+    meshes[0]->tangentalRelax(3, (meshes[0]->cleanUnionComp), 0, 2);
+    meshes[1]->tangentalRelax(3, (meshes[1]->cleanUnionComp), 0, 2);
+    
 
     float ratio = (float) w / (float) h;
 
