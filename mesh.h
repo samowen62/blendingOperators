@@ -6,7 +6,6 @@
 #include <fstream>
 #include <string.h>
 
-#define M_PI            3.14159265358979323846  /* pi */
 #define EDGE_ERROR      0.0015
 
 using namespace std;
@@ -19,6 +18,14 @@ struct VBOvertex
   double nx, ny, nz;     // Normal
 };
 
+/*
+ *  This struct is created to make the parameters for interpolation composition more clear
+ *  The details of these are outlined in Gourmel et. al.
+ */
+struct CompParams
+{
+  double a_0, a_1, a_2, theta_0, theta_1, theta_2, w_0, w_1;
+};
 
 inline vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
@@ -35,8 +42,12 @@ inline vector<string> split(const string &s, char delim) {
     return elems;
 }
 
-//TODO template the class so floats and doubles can be used
-//template<typename _Scalar>
+//function used in the interpolating composition. Made inline for clarity
+inline double kappa(double x, double w){
+  pow(1 - exp(1 - ( 1/( 1 - exp(1 - (1/x) ) ) ) ), w);
+}
+
+
 class Mesh {
     private:
       GLuint  ShaderProgram;
@@ -45,7 +56,6 @@ class Mesh {
 
       string base;
       int buff_size;
-      //double precomputed_sin[360];
       vector< VBOvertex > verticies;
 
       MatrixXd A;
@@ -81,6 +91,8 @@ class Mesh {
         /* user specified parameter that controls how much we rely on neighboring verticies when smoothing */
         double lambda = 0.3;
 
+        CompParams comp_params;
+
         /* the center and orientation of the bone's cylindrical coordinate system */
         Vector3d origin;
         Vector3d x_axis;
@@ -89,20 +101,22 @@ class Mesh {
 
         Mesh();
         Mesh(double _alpha, double _lambda, const char* _base, const char* shaderFile);
+        void construct();
         virtual ~Mesh(void);
         
-        void draw();
         int  loadShader(const char* vertexFileName, const char* fragmentFileName);
+        int  setCompParams(double _a_0, double _a_1, double _a_2, double _theta_0, double _theta_1, double _theta_2, double _w_0, double _w_1);
         void set(const char* fileName);
         void setView(const char* fileName);
         void generateHrbfCoefs();
         void generateBaryCoords();
+        void generateBoneCoords();
         void writeHrbf();
         void readHrbf();
-        void boneCalc();
         void regenVerts();
-        //if we want to embedd in python change this method to accepting floats for axis and angle
-        void transform(Matrix3d rot);
+        void draw();
+
+        void transform(int _type, float factor, float param, Vector3d axis);
 
 
         double hrbfFunct(Vector3d x);
@@ -129,20 +143,34 @@ class Mesh {
           return pow(pow(hrbfFunct(x), t) + pow(neighbors[neighbor_ind]->hrbfFunct(x), t), 1/t);
         }
 
+        double _interpolating_comp(Vector3d x, int neighbor_ind, float t){
+          Vector3d grad_0 = hrbfGrad(x), grad_1 = neighbors[neighbor_ind]->hrbfGrad(x);
+          double den = grad_0.norm() * grad_1.norm();
+
+          if(den == 0){
+            cout << "Error: norm of gradients are 0" << endl;
+            return 1.0;
+          }
+
+          double alpha = acos(grad_0.dot(grad_1) / den);
+          cout << alpha << endl;
+
+          return pow(pow(hrbfFunct(x), t) + pow(neighbors[neighbor_ind]->hrbfFunct(x), t), 1/t);
+        }
+
+
         typedef double (Mesh::*comp_funct)(Vector3d,int,float);
 
-        //if we want to generalize this class
-        //template <typename T>
-        //using Function = void (T::*)(Parameters p);
         comp_funct unionComp = &Mesh::_union_comp;
         comp_funct averageComp = &Mesh::_average_comp;
         comp_funct cleanUnionComp = &Mesh::_clean_union_comp;
         comp_funct blendingComp = &Mesh::_bending_comp;
+        comp_funct interpolatingComp = &Mesh::_interpolating_comp;
 
         void tangentalRelax(int iterations, comp_funct g, int neighbor, float param);
 
-        
- 
+        vector< comp_funct > composition_functions;
+
         vector< Mesh* > neighbors;
         vector< vector< int > >neighborIndex;
         /* determines which verticies correspond and finds the tangents to them as well */

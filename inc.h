@@ -17,4 +17,14 @@
 #include <math.h>
 #include <assert.h>
 
+#define M_PI            3.14159265358979323846  /* pi */
+
+enum COMPS { 
+	UNION_COMP,
+	AVERAGE_COMP,
+	CLEAN_UNION_COMP,
+	BLENDING_COMP,
+	INTERPOLATING_COMP
+};
+
 #endif

@@ -88,6 +88,11 @@ void App::initializeMesh(){
     //TODO: wrap mesh class with boost and then just call python script in main
     meshes[0] = new Mesh(alpha, lambda, "forearm", "shader1");
     meshes[1] = new Mesh(alpha, lambda, "arm", "shader1");
+
+    if(0 > meshes[0]->setCompParams(0, M_PI/2, M_PI, M_PI/4, 0, M_PI/4, 1, 1)){
+      fprintf(stderr, "Bad Composition Parameters\n" );
+      exit(1);
+    };
     //meshes[0] = new Mesh(alpha, "fingerTip", "shader1");
     //meshes[1] = new Mesh(alpha, "fingerMid", "shader1");
 
@@ -95,23 +100,16 @@ void App::initializeMesh(){
     //put this before any rotation since the verticies and normals change
     Mesh::createUnion(meshes[0], meshes[1]);
 
-    //these should be called after all createUnions
+    //this method should only be called on meshes[i] if all desired unions with meshes[i] have been made
     meshes[0]->generateBaryCoords();
     meshes[1]->generateBaryCoords();
 
-    Matrix3d rotation;
     Vector3d axis = meshes[0]->z_axis.cross(meshes[1]->z_axis).normalized();
-    float theta = M_PI * 0.5;
+    float theta = -0.5;//as a factor of pi
 
-    //create a new method that will store the angle information for blending purposes
-    //when rotating a bone relative to another
-    rotation = AngleAxisd(theta, axis);
-   
-    meshes[0]->transform(rotation);
-    meshes[0]->tangentalRelax(2, (meshes[0]->cleanUnionComp), 0, 2);
-    meshes[1]->tangentalRelax(2, (meshes[1]->cleanUnionComp), 0, 2);
+    meshes[0]->transform(CLEAN_UNION_COMP, theta, -1.0, axis);
 
-    //./out viewer 0.06 0.4   for arm           cleanUnionComp
+    //./out viewer 0.01 0.4   for arm           cleanUnionComp
     //./out viewer 0.0001 0.4 for fingerTip   cleanUnionComp
 }
 

@@ -37,6 +37,7 @@ void printShaderInfoLog(GLint shader)
 }
 
 Mesh::Mesh(double _alpha, double _lambda, const char* _base, const char* shaderFile){
+	construct();
 	alpha = _alpha;
 	lambda = _lambda;
 
@@ -56,11 +57,20 @@ Mesh::Mesh(double _alpha, double _lambda, const char* _base, const char* shaderF
 };
 
 Mesh::Mesh() {
-
+	construct();
 }
 
 Mesh::~Mesh(){
 	
+}
+
+void Mesh::construct(){
+	composition_functions.resize(5);
+    composition_functions[UNION_COMP] = unionComp;
+    composition_functions[AVERAGE_COMP] = averageComp;
+    composition_functions[CLEAN_UNION_COMP] = cleanUnionComp;
+    composition_functions[BLENDING_COMP] = blendingComp;
+    composition_functions[INTERPOLATING_COMP] = interpolatingComp;
 }
 
 /*
@@ -110,6 +120,24 @@ Vector3d Mesh::hrbfGrad(Vector3d x){
 	}
 	
 	return val;
+}
+
+int Mesh::setCompParams(double _a_0, double _a_1, double _a_2, double _theta_0, double _theta_1, double _theta_2, double _w_0, double _w_1){
+	if(_a_0 > _a_1 || _a_1 > _a_2)
+		return -1;
+
+	float theta_max = M_PI * 0.25 + 0.001;
+	if( _theta_0 > theta_max || _theta_1 > theta_max || _theta_2 > theta_max)
+		return -1;
+
+	comp_params.a_0 = _a_0;
+	comp_params.a_1 = _a_1;
+	comp_params.a_2 = _a_2;
+	comp_params.theta_0 = _theta_0;
+	comp_params.theta_1 = _theta_1;
+	comp_params.theta_2 = _theta_2;
+	comp_params.w_0 = _w_0;
+	comp_params.w_1 = _w_1;
 }
 
 
@@ -175,6 +203,8 @@ void Mesh::generateBaryCoords(){
  *	The latter process uses the user specified composition function which itself
  * 	needs to know which neighbor index we are looking at and may need a special
  *	parameter defined by param.
+ *
+ * 	This function now only goes through one iteration per call.
  */
 void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float param){
 	int sharedInd = -1, index, edgeSize;
@@ -182,10 +212,7 @@ void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float para
 	Mesh* sharedMesh;
 	Vector3d sum, n_sum;
 
-	while(iterations > -1){
-		iterations--;
-
-		//should look at edges here and gloss over them in the next traversal 
+	while(iterations > 0){
 		for(int i = 0; i < neighbors.size(); i++){
 			sharedMesh = neighbors[i];
 
@@ -268,89 +295,89 @@ void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float para
 			skip:;		
 		}
 
+
 		//to ensure our last step is barycentric recentering
-		if(iterations == 0)
-			break;
+		if(iterations > 0){
 
-		//vertex projection
-		vector< Vector3d > iso_grads(num_verts);
-		vector< double > iso_norms(num_verts);
+			//vertex projection
+			vector< Vector3d > iso_grads(num_verts);
+			vector< double > iso_norms(num_verts);
 
-		//we need this so we don't interfere with the above array
-		vector< double > iso_norms_tmp(num_verts);
-		for(int i = 0; i < num_verts; i++){
-			Vector3d grad_f = hrbfGrad(vecVerts[i]);
+			//we need this so we don't interfere with the above array
+			vector< double > iso_norms_tmp(num_verts);
+			for(int i = 0; i < num_verts; i++){
+				Vector3d grad_f = hrbfGrad(vecVerts[i]);
 
-			double 	f_i = (this->*g)(vecVerts[i], neighbor, param);
-			double 	norm = grad_f.norm();
-			norm = norm != 0.0 ? norm * norm : 1.0; //the latter shouldn't happen
-			//cout << i << ": " << f_i << " iso_0: " << vecIsos[i] << endl;
+				double 	f_i = (this->*g)(vecVerts[i], neighbor, param);
+				double 	norm = grad_f.norm();
+				norm = norm != 0.0 ? norm * norm : 1.0; //the latter shouldn't happen
+				//cout << i << ": " << f_i << " iso_0: " << vecIsos[i] << endl;
 
-			iso_grads[i] = (alpha * (vecIsos[i] - f_i) / norm) * grad_f;
-			iso_norms[i] = iso_grads[i].norm();
+				iso_grads[i] = (alpha * (vecIsos[i] - f_i) / norm) * grad_f;
+				iso_norms[i] = iso_grads[i].norm();
 
-		}
-
-		/*
-		 *	ADDED STEP
-		 *	Use a distance wieghted convolution filter across the norm of the iso_grads array
-		 *	to ensure our points move "nicely"
-
-		 *	Every edge is counted twice, once for each opposite angle
-		 *  06_smoothing pg 50
-
-		 *  sum_(i in edges)[w_i * iso_norm[i]]/ sum(i in edges)[w_i]
-		 *	w_i = ||vec_i - v|| * (cot(a_i) + cot(b_i))
-		 */
-		for(int i = 0; i < num_verts; i++){
-			edgeSize = edgeMap[i].size() / 2;
-			double sum = 0.0, total_w = 0.0;
-			for(int k = 0; k < edgeSize; k++ ){
-			
-				//angle a refers to the first edge and b to the second (looks reversed)
-				Vector3d c = vecVerts[edgeMap[i][2*k]] - vecVerts[edgeMap[i][2*k+1]],
-						 a = vecVerts[i] - vecVerts[edgeMap[i][2*k+1]],
-						 b = vecVerts[i] - vecVerts[edgeMap[i][2*k]];
-				double 	d_a = a.norm(),
-						d_b = b.norm();
-
-				double dot_a = c.dot(a), cross_a = c.cross(a).norm(), dot_b = c.dot(b), cross_b = c.cross(b).norm();
-				double cot_a = (cross_a == 0 ? 0 : abs(dot_a/cross_a)), cot_b = (cross_b == 0 ? 0 : abs(dot_b/cross_b));
-
-				cot_a *= d_a; cot_b *= d_b;
-				sum += iso_norms[edgeMap[i][2*k]]*cot_a + iso_norms[edgeMap[i][2*k+1]]*cot_b;
-				total_w += cot_a + cot_b;
 			}
 
-			//cout << iso_norms[i] << "  " <<  << " = " << sum << " / " << total_w << endl;
+			/*
+			 *	ADDED STEP
+			 *	Use a distance wieghted convolution filter across the norm of the iso_grads array
+			 *	to ensure our points move "nicely"
 
-			//if(i == 10)
-			//	break;
-			iso_norms_tmp[i] = total_w == 0 ? iso_norms[i] : (iso_norms[i]*(1 - lambda) + (sum*lambda/total_w));
+			 *	Every edge is counted twice, once for each opposite angle
+			 *  06_smoothing pg 50
+
+			 *  sum_(i in edges)[w_i * iso_norm[i]]/ sum(i in edges)[w_i]
+			 *	w_i = ||vec_i - v|| * (cot(a_i) + cot(b_i))
+			 */
+			for(int i = 0; i < num_verts; i++){
+				edgeSize = edgeMap[i].size() / 2;
+				double sum = 0.0, total_w = 0.0;
+				for(int k = 0; k < edgeSize; k++ ){
+				
+					//angle a refers to the first edge and b to the second (looks reversed)
+					Vector3d c = vecVerts[edgeMap[i][2*k]] - vecVerts[edgeMap[i][2*k+1]],
+							 a = vecVerts[i] - vecVerts[edgeMap[i][2*k+1]],
+							 b = vecVerts[i] - vecVerts[edgeMap[i][2*k]];
+					double 	d_a = a.norm(),
+							d_b = b.norm();
+
+					double dot_a = c.dot(a), cross_a = c.cross(a).norm(), dot_b = c.dot(b), cross_b = c.cross(b).norm();
+					double cot_a = (cross_a == 0 ? 0 : abs(dot_a/cross_a)), cot_b = (cross_b == 0 ? 0 : abs(dot_b/cross_b));
+
+					cot_a *= d_a; cot_b *= d_b;
+					sum += iso_norms[edgeMap[i][2*k]]*cot_a + iso_norms[edgeMap[i][2*k+1]]*cot_b;
+					total_w += cot_a + cot_b;
+				}
+
+				//cout << iso_norms[i] << "  " <<  << " = " << sum << " / " << total_w << endl;
+
+				//if(i == 10)
+				//	break;
+				iso_norms_tmp[i] = total_w == 0 ? iso_norms[i] : (iso_norms[i]*(1 - lambda) + (sum*lambda/total_w));
+			}
+
+			//we need 2 loops for this part since the values
+			//of the verticies effect the hrbf function
+			for(int i = 0; i < num_verts; i++){
+				//cout << iso_norms_tmp[i] << " | " << iso_norms[i] << endl;
+				//vecVerts[i] += iso_norms_tmp[i] * iso_grads[i];
+				//vecVerts[i] += iso_norms[i] * iso_grads[i];
+				Vector3d add = iso_norms_tmp[i]*(iso_grads[i].normalized());
+				//vecVerts[i] += iso_grads[i];
+				vecVerts[i] += add;
+				//cout << iso_grads[i].norm() << ' ' << add.norm() << endl;
+			}
+
+			//update neighbors as well
+			for(int i = 0; i < neighbors.size(); i++)
+				for(int j = 0; j < neighborIndex[i].size(); j+=2)
+					neighbors[i]->vecVerts[neighborIndex[i][j+1]] += iso_norms_tmp[neighborIndex[i][j]]*(iso_grads[neighborIndex[i][j]].normalized());
 		}
 
-		//we need 2 loops for this part since the values
-		//of the verticies effect the hrbf function
-		for(int i = 0; i < num_verts; i++){
-			//cout << iso_norms_tmp[i] << " | " << iso_norms[i] << endl;
-			//vecVerts[i] += iso_norms_tmp[i] * iso_grads[i];
-			//vecVerts[i] += iso_norms[i] * iso_grads[i];
-			Vector3d add = iso_norms_tmp[i]*(iso_grads[i].normalized());
-			//vecVerts[i] += iso_grads[i];
-			vecVerts[i] += add;
-			//cout << iso_grads[i].norm() << ' ' << add.norm() << endl;
-		}
-
-		//update neighbors as well
-		for(int i = 0; i < neighbors.size(); i++)
-			for(int j = 0; j < neighborIndex[i].size(); j+=2)
-				neighbors[i]->vecVerts[neighborIndex[i][j+1]] += iso_grads[neighborIndex[i][j]];
-
+		--iterations;
 	}
 
-	//for(int i = 0; i < num_verts; i++)
-	//	cout << i << ": " << hrbfFunct(vecVerts[i]) << ' ' <<  vecIsos[i] << endl;
-
+	//maybe only do param:neighbor as index
 	for(int i = 0; i < neighbors.size(); i++)
 		neighbors[i]->regenVerts();
 
@@ -519,38 +546,44 @@ void Mesh::writeHrbf(){
  *
  *	updates normals and verticies as well
  */
-void Mesh::transform(Matrix3d rot){
+//TODO: perform the transform and tangental relaxations incrementally
+void Mesh::transform(int _type, float factor, float param, Vector3d axis){
+	Matrix3d rot;
+	float mod_base = 0.20, p_factor = abs(factor);
+	float remainder_angle = fmod(p_factor, mod_base);
+	int iterations = floor(((p_factor - remainder_angle)/ mod_base) + 0.5) + 1;
 
-	Vector3d 	vec, norm;
-	Vector3d	x_proj = rot * x_axis, 
-				y_proj = rot * y_axis, 
-				z_proj = rot * z_axis;
-	for(int i = 0; i < VindexMap.size(); i++){
-		vec = boneCoords[i];
-		vec = vec(0)*x_proj + vec(1)*y_proj + vec(2)*z_proj + origin;
-		norm = rot * vecNorms[i];
+	while(iterations > 0){
+		//this allows for negative rotations too
+		float angle = M_PI*(iterations == 1 ? remainder_angle : mod_base)*(factor < 0 ? -1 : 1);
+		rot = AngleAxisd(angle, axis);
 
-		vecVerts[i] = vec;
-		vecNorms[i] = norm;
-		vector <int> indicies = VindexMap[i];
+		Vector3d 	vec, norm;
+		x_axis = rot * x_axis, 
+		y_axis = rot * y_axis, 
+		z_axis = rot * z_axis;
 
-		for(int j = 0; j < indicies.size(); j ++){
-			verticies[VindexMap[i][j]].x = vec(0); 
-			verticies[VindexMap[i][j]].y = vec(1);
-			verticies[VindexMap[i][j]].z = vec(2);
+		for(int i = 0; i < VindexMap.size(); i++){
+			vec = boneCoords[i];
+			vec = vec(0)*x_axis + vec(1)*y_axis + vec(2)*z_axis + origin;
+			norm = rot * vecNorms[i];
 
-			verticies[VindexMap[i][j]].nx = norm(0); 
-			verticies[VindexMap[i][j]].ny = norm(1); 
-			verticies[VindexMap[i][j]].nz = norm(2);
+			vecVerts[i] = vec;
+			vecNorms[i] = norm;
+			vector <int> indicies = VindexMap[i];
 		}
-	}
 
+		//do something about 0 param later
+		tangentalRelax(3, composition_functions[_type], 0, param);
+		neighbors[0]->tangentalRelax(3, neighbors[0]->composition_functions[_type], 0, param);
+		iterations--;
+	}
 }
 
 /* 
  * calculate each vertex in cartesian (bone) coordinates at origin 
  */ 
-void Mesh::boneCalc(){
+void Mesh::generateBoneCoords(){
 	Vector3d rel_vec;
 
 	for(int i = 0; i < num_verts; i++){
@@ -573,7 +606,7 @@ void Mesh::boneCalc(){
 void Mesh::setView(const char* fileName){
 	set(fileName);
     readHrbf();
-    boneCalc();
+    generateBoneCoords();
 }
 
 void Mesh::set(const char* fileName){
