@@ -2,23 +2,23 @@
 We utilize Hermite radial basis functions (HRBFs) to specify the surface associated with each bone of a skeleton implicitly as a level set. These functions are particularly useful when creating realistic blends/unions between intersecting joints. This repository features implementations of some of these blending operators using techniques detailed in Vaillant et. al. and Gourmel et. al. 
 
 
-<img src="images/Interpolation.png" alt="Drawing" style="width: 450px;"/>
+<img src="images/Interpolation.png" alt="Drawing" style="width: 450px;"/><br />
 Original mesh
 
-<img src="images/Interpolation-wire.png" alt="Drawing" style="width: 450px;"/>
+<img src="images/Interpolation-wire.png" alt="Drawing" style="width: 450px;"/><br />
 Wire Frame after deformation
 
-<img src="images/Interpolation-faces.png" alt="Drawing" style="width: 450px;"/>
+<img src="images/Interpolation-faces.png" alt="Drawing" style="width: 450px;"/><br />
 Result of deformation
 
 
-<img src="images/Clean-Union.png" alt="Drawing" style="width: 450px;"/>
+<img src="images/Clean-Union.png" alt="Drawing" style="width: 450px;"/><br />
 Original mesh
 
-<img src="images/Clean-Union-wire.png" alt="Drawing" style="width: 450px;"/>
+<img src="images/Clean-Union-wire.png" alt="Drawing" style="width: 450px;"/><br />
 Wire Frame after deformation
 
-<img src="images/Clean-Union-faces.png" alt="Drawing" style="width: 450px;"/>
+<img src="images/Clean-Union-faces.png" alt="Drawing" style="width: 450px;"/><br />
 Result of deformation
 
 
