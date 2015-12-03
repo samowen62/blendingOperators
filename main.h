@@ -25,13 +25,14 @@ class App {
       vector< Mesh* > meshes;
 
       int aroundZ = 0;
+      int aroundY = 0;
       int aroundX = 0;
       float zoom = 0.f;
       float zoomY = 0.f;
       float zoomZ = -0.5;
       int w=900,h=675;
 
-      vector<bool> k_down = {0,0,0,0,0,0,0,0,0,0};
+      vector<bool> k_down = {0,0,0,0,0,0,0,0,0,0,0,0};
 
       Eigen::Matrix3d forwardRot;
       Eigen::Matrix3d backRot;
@@ -39,6 +40,9 @@ class App {
 
     public: 
         double alpha, lambda;
+
+        //if true we display the edges only 
+        bool lines = false;
 
         App();
  

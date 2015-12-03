@@ -547,7 +547,7 @@ void Mesh::writeHrbf(){
  *	updates normals and verticies as well
  */
 //TODO: perform the transform and tangental relaxations incrementally
-void Mesh::transform(int _type, float factor, float param, Vector3d axis){
+void Mesh::transform(int _type, int relax_steps, float factor, float param, Vector3d axis){
 	Matrix3d rot;
 	float mod_base = 0.20, p_factor = abs(factor);
 	float remainder_angle = fmod(p_factor, mod_base);
@@ -574,8 +574,10 @@ void Mesh::transform(int _type, float factor, float param, Vector3d axis){
 		}
 
 		//do something about 0 param later
-		tangentalRelax(3, composition_functions[_type], 0, param);
-		neighbors[0]->tangentalRelax(3, neighbors[0]->composition_functions[_type], 0, param);
+		//maybe do 2 threads? could help
+		cout << "on iteration " << iterations << endl;
+		tangentalRelax(relax_steps, composition_functions[_type], 0, param);
+		neighbors[0]->tangentalRelax(relax_steps, neighbors[0]->composition_functions[_type], 0, param);
 		iterations--;
 	}
 }

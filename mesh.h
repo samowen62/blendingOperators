@@ -116,7 +116,7 @@ class Mesh {
         void regenVerts();
         void draw();
 
-        void transform(int _type, float factor, float param, Vector3d axis);
+        void transform(int _type, int relax_steps, float factor, float param, Vector3d axis);
 
 
         double hrbfFunct(Vector3d x);
@@ -153,9 +153,34 @@ class Mesh {
           }
 
           double alpha = acos(grad_0.dot(grad_1) / den);
-          cout << alpha << endl;
+          //cout << alpha << endl;
 
-          return pow(pow(hrbfFunct(x), t) + pow(neighbors[neighbor_ind]->hrbfFunct(x), t), 1/t);
+          double theta = comp_params.theta_2;
+
+          if(comp_params.a_0 >= alpha){
+            theta = comp_params.theta_0;
+          }else if(comp_params.a_1 >= alpha){
+            theta = kappa((alpha - comp_params.a_1)/(comp_params.a_0 - comp_params.a_1), comp_params.w_0);
+            theta *= (comp_params.theta_0 - comp_params.theta_1);
+            theta += comp_params.theta_1;
+          }else if(comp_params.a_2 >= alpha){
+            theta = kappa((alpha - comp_params.a_1)/(comp_params.a_2 - comp_params.a_1), comp_params.w_1);
+            theta *= (comp_params.theta_2 - comp_params.theta_1);
+            theta += comp_params.theta_1;
+          }
+
+          double  f_1 = hrbfFunct(x),
+                  f_2 = neighbors[neighbor_ind]->hrbfFunct(x),
+                  factor = (theta * 4)/M_PI;
+
+          double  _max = max(f_1, f_2),
+                  blend = pow(pow(f_1, t) + pow(f_2, t), 1/t);
+
+          //cout << "f: " << factor << endl;
+
+          //need to restrict this to values near joints
+          return factor*_max + (1 - factor)*blend;
+
         }
 
 

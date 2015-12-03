@@ -56,14 +56,17 @@ int main(int argc, char* argv[]) {
 
     if(mode == "viewer"){
 
-      if(argc < 4){
-        fprintf(stderr, "Usage: ./out viewer <float> <float>\n" );
+      if(argc < 5){
+        fprintf(stderr, "Usage: ./out viewer <float> <float> <int>\n" );
         exit(1);
       }
 
       App viewer;
       viewer.alpha = stod(argv[2]);
       viewer.lambda = stod(argv[3]);
+
+      //if <int> is a 1 then we display faces
+      viewer.lines = stoi(argv[4]) == 0;
  
       return viewer.OnExecute();
     }else if(mode == "hrbf"){
@@ -73,7 +76,6 @@ int main(int argc, char* argv[]) {
       }
 
       genHrbf(argv[2]);
-      //seg faults for some reason?
 
     }else{
       fprintf(stderr, "Usage: ./out [viewer/hrbf] [<double>/<file>.obj]\n" );
@@ -88,14 +90,14 @@ void App::initializeMesh(){
     //TODO: wrap mesh class with boost and then just call python script in main
     meshes[0] = new Mesh(alpha, lambda, "forearm", "shader1");
     meshes[1] = new Mesh(alpha, lambda, "arm", "shader1");
+    //meshes[0] = new Mesh(alpha, lambda, "fingerTip", "shader1");
+    //meshes[1] = new Mesh(alpha, lambda, "fingerMid", "shader1");
 
     if(0 > meshes[0]->setCompParams(0, M_PI/2, M_PI, M_PI/4, 0, M_PI/4, 1, 1)){
       fprintf(stderr, "Bad Composition Parameters\n" );
       exit(1);
     };
-    //meshes[0] = new Mesh(alpha, "fingerTip", "shader1");
-    //meshes[1] = new Mesh(alpha, "fingerMid", "shader1");
-
+    
     
     //put this before any rotation since the verticies and normals change
     Mesh::createUnion(meshes[0], meshes[1]);
@@ -105,9 +107,9 @@ void App::initializeMesh(){
     meshes[1]->generateBaryCoords();
 
     Vector3d axis = meshes[0]->z_axis.cross(meshes[1]->z_axis).normalized();
-    float theta = -0.5;//as a factor of pi
+    float theta = 0.5;//as a factor of pi negative for the arm
 
-    meshes[0]->transform(CLEAN_UNION_COMP, theta, -1.0, axis);
+    meshes[0]->transform(CLEAN_UNION_COMP, 1, theta, 4, axis);
 
     //./out viewer 0.01 0.4   for arm           cleanUnionComp
     //./out viewer 0.0001 0.4 for fingerTip   cleanUnionComp
@@ -147,8 +149,8 @@ bool App::OnInit() {
     GLfloat lmodel_ambient[] = { 0.0, 0.0, 0.0, 0.0 };
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, lmodel_ambient);
 
-    //comment out for regular surfaces
-    glPolygonMode(GL_FRONT, GL_LINE);
+    if(lines)
+      glPolygonMode(GL_FRONT, GL_LINE);
     glEnable( GL_CULL_FACE );
     glCullFace( GL_BACK );
     glFrontFace( GL_CCW );
@@ -207,6 +209,12 @@ void App::OnEvent(SDL_Event* Event) {
         case SDLK_n:
           k_down[9] = false;
           break;
+        case SDLK_q:
+          k_down[10] = false;
+          break;
+        case SDLK_e:
+          k_down[11] = false;
+          break;
 
        }
     }
@@ -242,6 +250,12 @@ void App::OnEvent(SDL_Event* Event) {
         case SDLK_n:
           k_down[9] = true;
           break;
+        case SDLK_q:
+          k_down[10] = true;
+          break;
+        case SDLK_e:
+          k_down[11] = true;
+          break;
 
        }
     }
@@ -268,6 +282,10 @@ void App::key_read(){
       zoomZ += step;
     if(k_down[9])
       zoomZ -= step;
+    if(k_down[10])
+      aroundY = (aroundY + 3) % 360;
+    if(k_down[11])
+      aroundY = (aroundY - 3) % 360;
 }
 
 void App::OnRender() {
@@ -280,7 +298,8 @@ void App::OnRender() {
     glTranslatef(-zoom,0.f,0.f);
     glTranslatef(0.f,-zoomY,0.f);
     glRotatef(aroundZ, 0.f, 0.f, 1.f);
-    glRotatef(aroundX, 0.f, 1.f, 0.f);
+    glRotatef(aroundY, 0.f, 1.f, 0.f);
+    glRotatef(aroundX, 1.f, 0.f, 0.f);
 
     for(auto it = meshes.begin(); it != meshes.end(); ++it)
       (*it)->draw();
