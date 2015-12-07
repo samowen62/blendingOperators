@@ -324,7 +324,6 @@ void Mesh::tangentalRelax(int iterations, comp_funct g, int neighbor, float para
 			 *	to ensure our points move "nicely"
 
 			 *	Every edge is counted twice, once for each opposite angle
-			 *  06_smoothing pg 50
 
 			 *  sum_(i in edges)[w_i * iso_norm[i]]/ sum(i in edges)[w_i]
 			 *	w_i = ||vec_i - v|| * (cot(a_i) + cot(b_i))
