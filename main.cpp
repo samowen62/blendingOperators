@@ -109,10 +109,10 @@ void App::initializeMesh(){
     Vector3d axis = meshes[0]->z_axis.cross(meshes[1]->z_axis).normalized();
     float theta = 0.5;//as a factor of pi negative for the arm
 
-    meshes[0]->transform(CLEAN_UNION_COMP, 1, theta, 4, axis);
+    meshes[0]->transform(EDGE_COMP, 1, theta, 4, axis);
 
-    //./out viewer 0.01 0.4   for arm           cleanUnionComp
-    //./out viewer 0.0001 0.4 for fingerTip   cleanUnionComp
+    //./out viewer 0.01 0.4 0   for arm           cleanUnionComp
+    //./out viewer 0.0001 0.4 0 for fingerTip   cleanUnionComp
 }
 
 bool App::OnInit() {

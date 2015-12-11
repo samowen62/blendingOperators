@@ -65,12 +65,13 @@ Mesh::~Mesh(){
 }
 
 void Mesh::construct(){
-	composition_functions.resize(5);
+	composition_functions.resize(6);
     composition_functions[UNION_COMP] = unionComp;
     composition_functions[AVERAGE_COMP] = averageComp;
     composition_functions[CLEAN_UNION_COMP] = cleanUnionComp;
     composition_functions[BLENDING_COMP] = blendingComp;
     composition_functions[INTERPOLATING_COMP] = interpolatingComp;
+    composition_functions[EDGE_COMP] = edgeComp;
 }
 
 /*

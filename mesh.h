@@ -153,8 +153,6 @@ class Mesh {
           }
 
           double alpha = acos(grad_0.dot(grad_1) / den);
-          //cout << alpha << endl;
-
           double theta = comp_params.theta_2;
 
           if(comp_params.a_0 >= alpha){
@@ -176,21 +174,63 @@ class Mesh {
           double  _max = max(f_1, f_2),
                   blend = pow(pow(f_1, t) + pow(f_2, t), 1/t);
 
-          //cout << "f: " << factor << endl;
-
-          //need to restrict this to values near joints
           return factor*_max + (1 - factor)*blend;
+
+        }
+
+        /*
+         *  This composition is the same as the previous except it's restricted to areas near the joint
+         */
+        double _edge_comp(Vector3d x, int neighbor_ind, float t){
+          Vector3d grad_0 = hrbfGrad(x), grad_1 = neighbors[neighbor_ind]->hrbfGrad(x);
+          double den = grad_0.norm() * grad_1.norm();
+
+          if(den == 0){
+            cout << "Error: norm of gradients are 0" << endl;
+            return 1.0;
+          }
+
+          double alpha = acos(grad_0.dot(grad_1) / den);
+          double theta = comp_params.theta_2;
+
+          if(comp_params.a_0 >= alpha){
+            theta = comp_params.theta_0;
+          }else if(comp_params.a_1 >= alpha){
+            theta = kappa((alpha - comp_params.a_1)/(comp_params.a_0 - comp_params.a_1), comp_params.w_0);
+            theta *= (comp_params.theta_0 - comp_params.theta_1);
+            theta += comp_params.theta_1;
+          }else if(comp_params.a_2 >= alpha){
+            theta = kappa((alpha - comp_params.a_1)/(comp_params.a_2 - comp_params.a_1), comp_params.w_1);
+            theta *= (comp_params.theta_2 - comp_params.theta_1);
+            theta += comp_params.theta_1;
+          }
+
+          double  f_1 = hrbfFunct(x),
+                  f_2 = neighbors[neighbor_ind]->hrbfFunct(x),
+                  factor = (theta * 4)/M_PI;
+
+          double  _max = max(f_1, f_2),
+                  blend = pow(pow(f_1, t) + pow(f_2, t), 1/t);
+
+          for(int i = 0; i < edgeMap[neighbor_ind].size(); i+= 2){
+            if((vecVerts[edgeMap[neighbor_ind][i]] - x).norm() < 0.02)
+              return factor*_max + (1 - factor)*blend;
+          }
+
+
+          return _max;
 
         }
 
 
         typedef double (Mesh::*comp_funct)(Vector3d,int,float);
 
-        comp_funct unionComp = &Mesh::_union_comp;
-        comp_funct averageComp = &Mesh::_average_comp;
-        comp_funct cleanUnionComp = &Mesh::_clean_union_comp;
-        comp_funct blendingComp = &Mesh::_bending_comp;
-        comp_funct interpolatingComp = &Mesh::_interpolating_comp;
+        comp_funct unionComp          = &Mesh::_union_comp;
+        comp_funct averageComp        = &Mesh::_average_comp;
+        comp_funct cleanUnionComp     = &Mesh::_clean_union_comp;
+        comp_funct blendingComp       = &Mesh::_bending_comp;
+        comp_funct interpolatingComp  = &Mesh::_interpolating_comp;
+        comp_funct edgeComp           = &Mesh::_edge_comp;
 
         void tangentalRelax(int iterations, comp_funct g, int neighbor, float param);
 

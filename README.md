@@ -43,7 +43,6 @@ Next we can run the viewer with
 The parameters ```alpha``` and ```lambda``` (both &lt; 1) are floats, the former describing the degree to which we try to conform to the iso surface during our tangential relaxation process. I've found that low decimals around 0.01 to work best. The latter parameter controls the degree to which smooth the surface during tangential relaxation. ```face_visible``` determines whether we display the wire frame (0) or actual surfaces with faces (1). 
 
 ##TODO:
-* Add more gradient based composition functions.
 * Add support for multiple joints and incorporate parent/child relationships among the nodes.
 * Put verticies in normals inside a VBO instead of calling the gl functions.
 * Add more images for examples of deformations.
